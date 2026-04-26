@@ -340,7 +340,7 @@ export class PlayingScene implements Scene {
       }
 
       // Re-sync renderable once after all obstacle corrections for this enemy.
-      enemy.renderable.position.set(enemy.position.x, enemy.position.y);
+      enemy.syncRenderable();
     }
   }
 

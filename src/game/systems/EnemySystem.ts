@@ -2,6 +2,7 @@ import { Enemy } from '../entities/Enemy';
 import type { Position } from '../entities/Player';
 import type { Gate } from '../utils/world';
 import type { ObstacleRect } from '../entities/Obstacle';
+import type { EnemyState } from '../../shared/types/index';
 import {
   getEnemyCullMargin,
   getEnemySpawnIntervalSeconds,
@@ -34,6 +35,7 @@ interface EnemyUpdateResult {
 export class EnemySystem {
   private readonly enemies: Enemy[] = [];
   private elapsedSpawnSeconds = 0;
+  private nextEnemyId = 0;
 
   public getEnemies(): readonly Enemy[] {
     return this.enemies;
@@ -65,6 +67,7 @@ export class EnemySystem {
 
     this.enemies.length = 0;
     this.elapsedSpawnSeconds = 0;
+    this.nextEnemyId = 0;
 
     return removedEnemies;
   }
@@ -107,12 +110,19 @@ export class EnemySystem {
 
     this.elapsedSpawnSeconds = 0;
 
-    const enemy = new Enemy(
+    const enemy = new Enemy(this.createEnemyState(
       getEnemySpawnPosition(playerPosition, bounds, gates, obstacles, viewport),
-    );
+    ));
     this.enemies.push(enemy);
 
     return [enemy];
+  }
+
+  private createEnemyState(position: Position): EnemyState {
+    const id = `enemy-${this.nextEnemyId}`;
+    this.nextEnemyId += 1;
+
+    return { id, position };
   }
 
   private moveEnemiesTowardPlayer(
@@ -121,12 +131,12 @@ export class EnemySystem {
   ): void {
     for (const enemy of this.enemies) {
       stepEnemyTowardPosition(
-        enemy.position,
+        enemy.state.position,
         playerPosition,
         deltaSeconds,
         enemy.speed,
       );
-      enemy.renderable.position.set(enemy.position.x, enemy.position.y);
+      enemy.syncRenderable();
     }
   }
 
@@ -137,7 +147,7 @@ export class EnemySystem {
     for (let index = this.enemies.length - 1; index >= 0; index -= 1) {
       const enemy = this.enemies[index];
 
-      if (isEnemyWithinValidBounds(enemy.position, bounds, cullMargin)) {
+      if (isEnemyWithinValidBounds(enemy.state.position, bounds, cullMargin)) {
         continue;
       }
 
