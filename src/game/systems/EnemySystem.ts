@@ -21,12 +21,9 @@ interface EnemyUpdateResult {
 const SPAWN_INTERVAL_SECONDS = 1.5;
 const SPAWN_INTERVAL_SCALE_FACTOR = 0.02;
 const MINIMUM_SPAWN_INTERVAL_SECONDS = 0.45;
-const SPAWN_SIDE_COUNT = 4;
-const TOP_SIDE_INDEX = 0;
-const RIGHT_SIDE_INDEX = 1;
-const BOTTOM_SIDE_INDEX = 2;
-const ENEMY_SPAWN_OFFSET = 20;
-const MINIMUM_RANDOM_VALUE = 0;
+const SPAWN_RADIUS_MIN = 400;
+const SPAWN_RADIUS_MAX = 800;
+const TWO_PI = Math.PI * 2;
 
 export class EnemySystem {
   private readonly enemies: Enemy[] = [];
@@ -40,6 +37,7 @@ export class EnemySystem {
     const spawnedEnemies = this.spawnEnemies(
       update.deltaSeconds,
       update.bounds,
+      update.playerPosition,
       update.survivalTimeSeconds,
     );
 
@@ -82,6 +80,7 @@ export class EnemySystem {
   private spawnEnemies(
     deltaSeconds: number,
     bounds: Bounds,
+    playerPosition: Position,
     survivalTimeSeconds: number,
   ): Enemy[] {
     this.elapsedSpawnSeconds += deltaSeconds;
@@ -96,7 +95,7 @@ export class EnemySystem {
 
     this.elapsedSpawnSeconds = 0;
 
-    const enemy = new Enemy(this.getSpawnPosition(bounds));
+    const enemy = new Enemy(this.getSpawnPosition(playerPosition, bounds));
     this.enemies.push(enemy);
 
     return [enemy];
@@ -110,28 +109,19 @@ export class EnemySystem {
     );
   }
 
-  private getSpawnPosition(bounds: Bounds): Position {
-    const sideIndex = Math.floor(Math.random() * SPAWN_SIDE_COUNT);
-    const x = this.getRandomValue(bounds.width);
-    const y = this.getRandomValue(bounds.height);
+  private getSpawnPosition(playerPosition: Position, bounds: Bounds): Position {
+    const angle = Math.random() * TWO_PI;
+    const radius = SPAWN_RADIUS_MIN + Math.random() * (SPAWN_RADIUS_MAX - SPAWN_RADIUS_MIN);
+    const x = Math.min(
+      Math.max(0, playerPosition.x + Math.cos(angle) * radius),
+      bounds.width,
+    );
+    const y = Math.min(
+      Math.max(0, playerPosition.y + Math.sin(angle) * radius),
+      bounds.height,
+    );
 
-    if (sideIndex === TOP_SIDE_INDEX) {
-      return { x, y: -ENEMY_SPAWN_OFFSET };
-    }
-
-    if (sideIndex === RIGHT_SIDE_INDEX) {
-      return { x: bounds.width + ENEMY_SPAWN_OFFSET, y };
-    }
-
-    if (sideIndex === BOTTOM_SIDE_INDEX) {
-      return { x, y: bounds.height + ENEMY_SPAWN_OFFSET };
-    }
-
-    return { x: -ENEMY_SPAWN_OFFSET, y };
-  }
-
-  private getRandomValue(maximum: number): number {
-    return Math.random() * Math.max(maximum, MINIMUM_RANDOM_VALUE);
+    return { x, y };
   }
 
   private moveEnemiesTowardPlayer(
@@ -157,11 +147,12 @@ export class EnemySystem {
 
   private removeInvalidEnemies(bounds: Bounds): Enemy[] {
     const removedEnemies: Enemy[] = [];
+    const CULL_MARGIN = SPAWN_RADIUS_MAX + 100;
 
     for (let index = this.enemies.length - 1; index >= 0; index -= 1) {
       const enemy = this.enemies[index];
 
-      if (this.isEnemyWithinValidBounds(enemy, bounds)) {
+      if (this.isEnemyWithinValidBounds(enemy, bounds, CULL_MARGIN)) {
         continue;
       }
 
@@ -175,17 +166,13 @@ export class EnemySystem {
   private isEnemyWithinValidBounds(
     enemy: Enemy,
     bounds: Bounds,
+    margin: number,
   ): boolean {
-    const minimumX = -enemy.radius - ENEMY_SPAWN_OFFSET;
-    const maximumX = bounds.width + enemy.radius + ENEMY_SPAWN_OFFSET;
-    const minimumY = -enemy.radius - ENEMY_SPAWN_OFFSET;
-    const maximumY = bounds.height + enemy.radius + ENEMY_SPAWN_OFFSET;
-
     return (
-      enemy.position.x >= minimumX &&
-      enemy.position.x <= maximumX &&
-      enemy.position.y >= minimumY &&
-      enemy.position.y <= maximumY
+      enemy.position.x >= -margin &&
+      enemy.position.x <= bounds.width + margin &&
+      enemy.position.y >= -margin &&
+      enemy.position.y <= bounds.height + margin
     );
   }
 }
