@@ -1,4 +1,6 @@
-import { GameScene } from '../scenes/GameScene';
+import { HomeScene } from '../scenes/HomeScene';
+import { PlayingScene } from '../scenes/PlayingScene';
+import { SceneManager } from '../scenes/SceneManager';
 import { Loop } from './Loop';
 import { Renderer } from './Renderer';
 
@@ -10,7 +12,7 @@ export class Game {
   });
   private initializationPromise: Promise<void> | null = null;
   private isInitialized = false;
-  private activeScene: GameScene | null = null;
+  private sceneManager: SceneManager | null = null;
 
   public async initialize(container: HTMLElement): Promise<void> {
     if (this.initializationPromise !== null) {
@@ -35,8 +37,8 @@ export class Game {
 
   public destroy(): void {
     this.stop();
-    this.activeScene?.destroy();
-    this.activeScene = null;
+    this.sceneManager?.destroy();
+    this.sceneManager = null;
     this.renderer.destroy();
     this.initializationPromise = null;
     this.isInitialized = false;
@@ -44,16 +46,22 @@ export class Game {
 
   private async initializeGame(container: HTMLElement): Promise<void> {
     await this.renderer.initialize(container);
-    this.activeScene = new GameScene(this.renderer);
-    this.activeScene.initialize();
+    this.sceneManager = new SceneManager();
+    this.sceneManager.setScene(
+      new HomeScene(this.renderer, this.startPlayingScene),
+    );
     this.isInitialized = true;
   }
 
   private update(deltaSeconds: number): void {
-    this.activeScene?.update(deltaSeconds);
+    this.sceneManager?.update(deltaSeconds);
   }
 
   private render(): void {
     this.renderer.render();
   }
+
+  private readonly startPlayingScene = (): void => {
+    this.sceneManager?.setScene(new PlayingScene(this.renderer));
+  };
 }

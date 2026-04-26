@@ -6,6 +6,7 @@ import { EnemySystem } from '../systems/EnemySystem';
 import { MovementSystem } from '../systems/MovementSystem';
 import { InputManager } from '../core/InputManager';
 import type { Renderer } from '../core/Renderer';
+import type { Scene } from './Scene';
 
 const INITIAL_PLAYER_POSITION_RATIO = 0.5;
 const INITIAL_SCORE = 0;
@@ -15,7 +16,7 @@ const SCORE_TEXT_Y = 12;
 const SCORE_TEXT_COLOR = 0xffffff;
 const SCORE_TEXT_SIZE = 20;
 
-export class GameScene {
+export class PlayingScene implements Scene {
   private readonly collisionSystem = new CollisionSystem();
   private readonly enemySystem = new EnemySystem();
   private readonly inputManager = new InputManager();

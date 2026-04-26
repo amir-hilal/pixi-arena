@@ -9,7 +9,7 @@
 
 ## Game Experience
 
-- [ ] Add scene flow: Home, Playing, Paused, Game Over
+- [x] Add scene flow: Home, Playing, Game Over
 - [ ] Add start/restart flow
 - [ ] Add health/lives system
 - [ ] Update rules: avoid enemies instead of scoring by collision
