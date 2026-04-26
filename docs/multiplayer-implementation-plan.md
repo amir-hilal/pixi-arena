@@ -522,7 +522,7 @@ interface LobbyState {
 ### Phase C — Entity View Wrappers
 *Prepares for server. Do not start this before Phase B is stable.*
 
-1. Define `PlayerState` as the data source for `Player`. `Player` holds a `state: PlayerState` and a `renderable: Graphics`. View reads `state.position` to sync renderable.
+1. ✅ Define `PlayerState` as the data source for `Player`. `Player` holds a `state: PlayerState` and a `renderable: Graphics`. View reads `state.position` to sync renderable.
 2. Same pattern for `Enemy` → `EnemyState`.
 3. All systems operate on `PlayerState`/`EnemyState` directly; call `syncRenderable` at end of each update pass.
 4. Verify: zero TypeScript errors. Single-player works.

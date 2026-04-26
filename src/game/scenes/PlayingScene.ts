@@ -68,12 +68,9 @@ export class PlayingScene implements Scene {
   private worldContainer: Container | null = null;
   private ground: GroundBackground | null = null;
   private boundary: WorldBoundary | null = null;
-  private lives = INITIAL_LIVES;
   private livesText: Text | null = null;
-  private score = INITIAL_SCORE;
   private displayedScore = INITIAL_SCORE;
   private scoreText: Text | null = null;
-  private survivalTimeSeconds = INITIAL_SURVIVAL_TIME_SECONDS;
   private displayedSurvivalSeconds = INITIAL_SURVIVAL_TIME_SECONDS;
   private timerText: Text | null = null;
   private virtualJoystick: VirtualJoystick | null = null;
@@ -95,11 +92,9 @@ export class PlayingScene implements Scene {
     }
 
     this.inputManager.initialize();
-    this.lives = INITIAL_LIVES;
-    this.score = INITIAL_SCORE;
     this.displayedScore = INITIAL_SCORE;
-    this.survivalTimeSeconds = INITIAL_SURVIVAL_TIME_SECONDS;
     this.displayedSurvivalSeconds = INITIAL_SURVIVAL_TIME_SECONDS;
+    this.player = new Player(this.createInitialPlayerState());
     this.scoreText = this.createScoreText();
     this.timerText = this.createTimerText();
     this.livesText = this.createLivesText();
@@ -118,7 +113,6 @@ export class PlayingScene implements Scene {
       this.worldContainer.addChild(obstacle.renderable);
     }
 
-    this.player = new Player(this.getInitialPlayerPosition());
     this.worldContainer.addChild(this.player.renderable);
     this.initializeVirtualJoystick();
     this.isInitialized = true;
@@ -195,11 +189,8 @@ export class PlayingScene implements Scene {
       this.timerText = null;
     }
 
-    this.lives = INITIAL_LIVES;
     this.resetDamageFeedback();
-    this.score = INITIAL_SCORE;
     this.displayedScore = INITIAL_SCORE;
-    this.survivalTimeSeconds = INITIAL_SURVIVAL_TIME_SECONDS;
     this.displayedSurvivalSeconds = INITIAL_SURVIVAL_TIME_SECONDS;
     this.shakeOffsetX = 0;
     this.shakeOffsetY = 0;
@@ -212,6 +203,17 @@ export class PlayingScene implements Scene {
     return {
       x: worldBounds.width * INITIAL_PLAYER_POSITION_RATIO,
       y: worldBounds.height * INITIAL_PLAYER_POSITION_RATIO,
+    };
+  }
+
+  private createInitialPlayerState(): PlayerState {
+    return {
+      id: 'single-player',
+      position: this.getInitialPlayerPosition(),
+      lives: INITIAL_LIVES,
+      isEliminated: false,
+      survivalTimeSeconds: INITIAL_SURVIVAL_TIME_SECONDS,
+      score: INITIAL_SCORE,
     };
   }
 
@@ -297,7 +299,7 @@ export class PlayingScene implements Scene {
       gates: WORLD_GATES,
       obstacles: this.obstacleSystem.getObstacles().map((o) => o.rect),
       playerPosition: player.position,
-      survivalTimeSeconds: this.survivalTimeSeconds,
+      survivalTimeSeconds: player.state.survivalTimeSeconds,
       viewport: {
         worldLeft:   -this.camera.x,
         worldTop:    -this.camera.y,
@@ -326,7 +328,7 @@ export class PlayingScene implements Scene {
     }
 
     // Re-sync renderable after position corrections.
-    player.renderable.position.set(player.position.x, player.position.y);
+    player.syncRenderable();
   }
 
   private resolveEnemyObstacleCollisions(): void {
@@ -381,30 +383,16 @@ export class PlayingScene implements Scene {
   }
 
   private damagePlayer(player: Player, damage: number): PlayerState {
-    const playerState = this.toPlayerState(player);
-
-    applyDamage(playerState, damage);
-    this.lives = playerState.lives;
+    applyDamage(player.state, damage);
     this.updateLivesText();
 
-    return playerState;
+    return player.state;
   }
 
   private toPlayerDamageState(player: Player): PlayerDamageState {
     return {
-      ...this.toPlayerState(player),
-      radius: player.radius,
-    };
-  }
-
-  private toPlayerState(player: Player): PlayerState {
-    return {
-      id: 'single-player',
       position: player.position,
-      lives: this.lives,
-      isEliminated: this.lives <= 0,
-      survivalTimeSeconds: this.survivalTimeSeconds,
-      score: this.score,
+      radius: player.radius,
     };
   }
 
@@ -473,14 +461,18 @@ export class PlayingScene implements Scene {
   }
 
   private updateSurvivalScore(deltaSeconds: number): void {
-    this.score += POINTS_PER_SECOND * deltaSeconds;
-    this.survivalTimeSeconds += deltaSeconds;
+    if (this.player === null) {
+      return;
+    }
+
+    this.player.state.score += POINTS_PER_SECOND * deltaSeconds;
+    this.player.state.survivalTimeSeconds += deltaSeconds;
     this.updateScoreText();
     this.updateTimerText();
   }
 
   private getDisplayScore(): number {
-    return Math.floor(this.score);
+    return Math.floor(this.player?.state.score ?? INITIAL_SCORE);
   }
 
   private getScoreLabel(): string {
@@ -488,7 +480,7 @@ export class PlayingScene implements Scene {
   }
 
   private getLivesLabel(): string {
-    return `Lives: ${this.lives}`;
+    return `Lives: ${this.player?.state.lives ?? INITIAL_LIVES}`;
   }
 
   private getTimerLabel(): string {
@@ -529,7 +521,7 @@ export class PlayingScene implements Scene {
 
   private updateTimerText(): void {
     const nextDisplayedSurvivalSeconds = Math.floor(
-      this.survivalTimeSeconds,
+      this.player?.state.survivalTimeSeconds ?? INITIAL_SURVIVAL_TIME_SECONDS,
     );
 
     if (
