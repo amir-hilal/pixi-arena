@@ -1,14 +1,13 @@
 # Progress Checklist
 
+## Current Completed Foundation
+
 - [x] Setup project structure and documentation
 - [x] Set up Pixi application
 - [x] Add player movement
 - [x] Add enemies
 - [x] Add collision
 - [x] Add scoring
-
-## Game Experience
-
 - [x] Add scene flow: Home, Playing, Game Over
 - [x] Add start/restart flow
 - [x] Add health/lives system
@@ -18,21 +17,55 @@
 - [x] Add basic sound/visual feedback
 - [x] Add responsive UI polish
 
-## Product Features
+## Single Player Polish
 
-- [ ] Add local player name input
-- [ ] Add leaderboard screen
-- [ ] Add API integration for leaderboard
-- [ ] Add environment-based API config
+- [x] Clean mobile long-press behavior
+- [ ] Finalize responsive controls
+- [ ] Stabilize scene flow
 
-## Production Readiness
+## World Expansion
 
-- [ ] Prepare deployment
-- [ ] Add README usage instructions
-- [ ] Prepare interview talking points
+- [ ] Add world coordinate system
+- [ ] Add camera follow
+- [ ] Add ground/tile background
+- [ ] Add obstacles
+- [ ] Add obstacle collision
+- [ ] Add world boundaries
 
-## MVP Scope Note
+## Multiplayer
 
-Pixi Arena is intentionally small in scope: a survival arena game where the player avoids enemies, survives as long as possible, earns points, loses lives on collision, and can submit a final score to a leaderboard.
+- [ ] Design shared simulation types
+- [ ] Create realtime server
+- [ ] Add Socket.IO
+- [ ] Add lobby create/join/leave
+- [ ] Add player input events
+- [ ] Add server-authoritative movement
+- [ ] Add snapshot broadcasting
+- [ ] Add remote player rendering
+- [ ] Add interpolation
+- [ ] Add server-owned enemies
+- [ ] Add multiplayer game over/winner logic
 
-The goal is interview-ready production quality, not feature quantity. Registration, settings, and a rule editor are future features and are not part of the MVP.
+## Firebase Persistence
+
+- [x] Document Firebase env config
+- [ ] Add Firebase initialization layer
+- [ ] Add Firestore repositories
+- [ ] Save leaderboard scores
+- [ ] Save match results
+- [ ] Add leaderboard scene
+- [ ] Draft Firestore security rules
+
+## Production
+
+- [ ] Configure local/dev/prod environments
+- [ ] Deploy frontend
+- [ ] Deploy realtime server
+- [ ] Verify production Firebase separation
+- [ ] Prepare interview/demo talking points
+
+## Product Scope Note
+
+Pixi Arena is moving toward a small multiplayer survival arena: up to 4 players share a lobby, avoid enemies, and the player who survives longest wins.
+
+The goal remains interview-ready production quality over feature quantity. Authentication, registration, settings, cosmetics, matchmaking, and rule editors are outside the first multiplayer MVP.
