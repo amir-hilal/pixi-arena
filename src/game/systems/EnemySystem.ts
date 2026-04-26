@@ -3,15 +3,13 @@ import type { Position } from '../entities/Player';
 import type { Gate } from '../utils/world';
 import type { ObstacleRect } from '../entities/Obstacle';
 import {
-  SPAWN_INTERVAL_SECONDS,
-  SPAWN_INTERVAL_SCALE_FACTOR,
-  MINIMUM_SPAWN_INTERVAL_SECONDS,
-  SPAWN_RADIUS_MIN,
-  SPAWN_RADIUS_MAX,
-  GATE_FALLBACK_MIN_DIST,
-  MAX_SPAWN_RETRIES,
-  SPAWN_SAFE_RADIUS,
-} from '../../shared/constants/simulation';
+  getEnemyCullMargin,
+  getEnemySpawnIntervalSeconds,
+  getEnemySpawnPosition,
+  isEnemyWithinValidBounds,
+  stepEnemyTowardPosition,
+  type ViewportRect,
+} from '../../shared/simulation/enemyBehavior';
 
 interface Bounds {
   width: number;
@@ -32,15 +30,6 @@ interface EnemyUpdateResult {
   removedEnemies: Enemy[];
   spawnedEnemies: Enemy[];
 }
-
-interface ViewportRect {
-  worldLeft: number;
-  worldTop: number;
-  worldRight: number;
-  worldBottom: number;
-}
-
-const TWO_PI = Math.PI * 2;
 
 export class EnemySystem {
   private readonly enemies: Enemy[] = [];
@@ -108,7 +97,7 @@ export class EnemySystem {
   ): Enemy[] {
     this.elapsedSpawnSeconds += deltaSeconds;
 
-    const spawnIntervalSeconds = this.getSpawnIntervalSeconds(
+    const spawnIntervalSeconds = getEnemySpawnIntervalSeconds(
       survivalTimeSeconds,
     );
 
@@ -119,114 +108,11 @@ export class EnemySystem {
     this.elapsedSpawnSeconds = 0;
 
     const enemy = new Enemy(
-      this.getSpawnPosition(playerPosition, bounds, gates, obstacles, viewport),
+      getEnemySpawnPosition(playerPosition, bounds, gates, obstacles, viewport),
     );
     this.enemies.push(enemy);
 
     return [enemy];
-  }
-
-  private getSpawnIntervalSeconds(survivalTimeSeconds: number): number {
-    return Math.max(
-      MINIMUM_SPAWN_INTERVAL_SECONDS,
-      SPAWN_INTERVAL_SECONDS -
-        survivalTimeSeconds * SPAWN_INTERVAL_SCALE_FACTOR,
-    );
-  }
-
-  private getSpawnPosition(
-    playerPosition: Position,
-    bounds: Bounds,
-    gates: readonly Gate[],
-    obstacles: readonly ObstacleRect[],
-    viewport: ViewportRect,
-  ): Position {
-    // Try several random near-player angles; skip positions that are too close
-    // (due to world-edge clamping) or land inside an obstacle.
-    for (let attempt = 0; attempt < MAX_SPAWN_RETRIES; attempt++) {
-      const angle = Math.random() * TWO_PI;
-      const radius = SPAWN_RADIUS_MIN + Math.random() * (SPAWN_RADIUS_MAX - SPAWN_RADIUS_MIN);
-      const x = Math.min(
-        Math.max(0, playerPosition.x + Math.cos(angle) * radius),
-        bounds.width,
-      );
-      const y = Math.min(
-        Math.max(0, playerPosition.y + Math.sin(angle) * radius),
-        bounds.height,
-      );
-      const actualDist = Math.hypot(x - playerPosition.x, y - playerPosition.y);
-
-      if (
-        actualDist >= GATE_FALLBACK_MIN_DIST &&
-        !this.isInsideObstacle({ x, y }, obstacles)
-      ) {
-        return { x, y };
-      }
-    }
-
-    // All near-player attempts failed — use a gate spawn.
-    return this.selectGateSpawn(playerPosition, gates, viewport, obstacles);
-  }
-
-  /**
-   * Picks the best gate to spawn from.
-   * Prefers off-screen gates so the enemy appears naturally from outside the
-   * visible area. Among qualifying gates, picks the one nearest to the player.
-   * Falls back to the nearest gate if all are on-screen.
-   */
-  private selectGateSpawn(
-    playerPosition: Position,
-    gates: readonly Gate[],
-    viewport: ViewportRect,
-    obstacles: readonly ObstacleRect[],
-  ): Position {
-    const offScreen = gates.filter((gate) => !this.isGateInViewport(gate, viewport));
-    const candidates = offScreen.length > 0 ? offScreen : [...gates];
-
-    let bestX = candidates[0].spawnX;
-    let bestY = candidates[0].spawnY;
-    let bestDist = Infinity;
-
-    for (const gate of candidates) {
-      if (this.isInsideObstacle({ x: gate.spawnX, y: gate.spawnY }, obstacles)) {
-        continue;
-      }
-
-      const dist = Math.hypot(
-        gate.spawnX - playerPosition.x,
-        gate.spawnY - playerPosition.y,
-      );
-
-      if (dist < bestDist) {
-        bestDist = dist;
-        bestX = gate.spawnX;
-        bestY = gate.spawnY;
-      }
-    }
-
-    return { x: bestX, y: bestY };
-  }
-
-  private isGateInViewport(gate: Gate, viewport: ViewportRect): boolean {
-    return (
-      gate.spawnX >= viewport.worldLeft &&
-      gate.spawnX <= viewport.worldRight &&
-      gate.spawnY >= viewport.worldTop &&
-      gate.spawnY <= viewport.worldBottom
-    );
-  }
-
-  private isInsideObstacle(pos: Position, obstacles: readonly ObstacleRect[]): boolean {
-    for (const rect of obstacles) {
-      const nearestX = Math.max(rect.x, Math.min(pos.x, rect.x + rect.width));
-      const nearestY = Math.max(rect.y, Math.min(pos.y, rect.y + rect.height));
-
-      if (Math.hypot(pos.x - nearestX, pos.y - nearestY) < SPAWN_SAFE_RADIUS) {
-        return true;
-      }
-    }
-
-    return false;
   }
 
   private moveEnemiesTowardPlayer(
@@ -234,30 +120,24 @@ export class EnemySystem {
     deltaSeconds: number,
   ): void {
     for (const enemy of this.enemies) {
-      const movementX = playerPosition.x - enemy.position.x;
-      const movementY = playerPosition.y - enemy.position.y;
-      const movementLength = Math.hypot(movementX, movementY);
-
-      if (movementLength === 0) {
-        continue;
-      }
-
-      const distance = enemy.speed * deltaSeconds;
-
-      enemy.position.x += (movementX / movementLength) * distance;
-      enemy.position.y += (movementY / movementLength) * distance;
+      stepEnemyTowardPosition(
+        enemy.position,
+        playerPosition,
+        deltaSeconds,
+        enemy.speed,
+      );
       enemy.renderable.position.set(enemy.position.x, enemy.position.y);
     }
   }
 
   private removeInvalidEnemies(bounds: Bounds): Enemy[] {
     const removedEnemies: Enemy[] = [];
-    const CULL_MARGIN = SPAWN_RADIUS_MAX + 100;
+    const cullMargin = getEnemyCullMargin();
 
     for (let index = this.enemies.length - 1; index >= 0; index -= 1) {
       const enemy = this.enemies[index];
 
-      if (this.isEnemyWithinValidBounds(enemy, bounds, CULL_MARGIN)) {
+      if (isEnemyWithinValidBounds(enemy.position, bounds, cullMargin)) {
         continue;
       }
 
@@ -266,18 +146,5 @@ export class EnemySystem {
     }
 
     return removedEnemies;
-  }
-
-  private isEnemyWithinValidBounds(
-    enemy: Enemy,
-    bounds: Bounds,
-    margin: number,
-  ): boolean {
-    return (
-      enemy.position.x >= -margin &&
-      enemy.position.x <= bounds.width + margin &&
-      enemy.position.y >= -margin &&
-      enemy.position.y <= bounds.height + margin
-    );
   }
 }
