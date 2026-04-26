@@ -17,8 +17,10 @@ export class Camera {
   public update(playerPosition: Position, viewport: ViewportSize): void {
     const targetX = viewport.width / 2 - playerPosition.x;
     const targetY = viewport.height / 2 - playerPosition.y;
+    const minOffsetX = Math.min(0, viewport.width - WORLD_WIDTH);
+    const minOffsetY = Math.min(0, viewport.height - WORLD_HEIGHT);
 
-    this.x = Math.min(0, Math.max(viewport.width - WORLD_WIDTH, targetX));
-    this.y = Math.min(0, Math.max(viewport.height - WORLD_HEIGHT, targetY));
+    this.x = Math.min(0, Math.max(minOffsetX, targetX));
+    this.y = Math.min(0, Math.max(minOffsetY, targetY));
   }
 }

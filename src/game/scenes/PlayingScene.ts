@@ -134,7 +134,7 @@ export class PlayingScene implements Scene {
 
     if (this.worldContainer !== null) {
       this.renderer.removeFromStage(this.worldContainer);
-      this.worldContainer.destroy();
+      this.worldContainer.destroy({ children: true });
       this.worldContainer = null;
     }
 
