@@ -13,6 +13,8 @@ import type { Scene } from './Scene';
 import { getWorldBounds } from '../utils/world';
 import { Camera } from '../core/Camera';
 import { GroundBackground } from '../ui/GroundBackground';
+import { ObstacleSystem } from '../systems/ObstacleSystem';
+import type { ObstacleRect } from '../entities/Obstacle';
 
 const INITIAL_PLAYER_POSITION_RATIO = 0.5;
 const INITIAL_SCORE = 0;
@@ -48,6 +50,7 @@ export class PlayingScene implements Scene {
   private readonly enemySystem = new EnemySystem();
   private readonly inputManager = new InputManager();
   private readonly movementSystem = new MovementSystem();
+  private readonly obstacleSystem = new ObstacleSystem();
   private player: Player | null = null;
   private worldContainer: Container | null = null;
   private ground: GroundBackground | null = null;
@@ -93,6 +96,11 @@ export class PlayingScene implements Scene {
     this.renderer.addToStage(this.livesText);
     this.ground = new GroundBackground();
     this.worldContainer.addChild(this.ground.renderable);
+
+    for (const obstacle of this.obstacleSystem.initialize()) {
+      this.worldContainer.addChild(obstacle.renderable);
+    }
+
     this.player = new Player(this.getInitialPlayerPosition());
     this.worldContainer.addChild(this.player.renderable);
     this.initializeVirtualJoystick();
@@ -111,6 +119,7 @@ export class PlayingScene implements Scene {
       movementDirection: this.getMovementDirection(),
       player: this.player,
     });
+    this.resolvePlayerObstacleCollisions(this.player);
     this.camera.update(this.player.position, this.renderer.getViewportSize());
     this.updateDamageFeedback(deltaSeconds);
     this.syncWorldContainerPosition();
@@ -129,6 +138,11 @@ export class PlayingScene implements Scene {
     this.inputManager.destroy();
     this.destroyVirtualJoystick();
     this.removeEnemies(this.enemySystem.destroy());
+
+    for (const obstacle of this.obstacleSystem.destroy()) {
+      this.worldContainer?.removeChild(obstacle.renderable);
+      obstacle.renderable.destroy();
+    }
 
     if (this.player !== null) {
       this.worldContainer?.removeChild(this.player.renderable);
@@ -276,6 +290,41 @@ export class PlayingScene implements Scene {
       this.worldContainer?.removeChild(enemy.renderable);
       enemy.renderable.destroy();
     }
+  }
+
+  private resolvePlayerObstacleCollisions(player: Player): void {
+    for (const obstacle of this.obstacleSystem.getObstacles()) {
+      this.resolveCircleRectCollision(player, obstacle.rect);
+    }
+
+    // Re-sync renderable after position corrections.
+    player.renderable.position.set(player.position.x, player.position.y);
+  }
+
+  private resolveCircleRectCollision(player: Player, rect: ObstacleRect): void {
+    const nearestX = Math.max(rect.x, Math.min(player.position.x, rect.x + rect.width));
+    const nearestY = Math.max(rect.y, Math.min(player.position.y, rect.y + rect.height));
+    const dx = player.position.x - nearestX;
+    const dy = player.position.y - nearestY;
+    const distSq = dx * dx + dy * dy;
+
+    if (distSq >= player.radius * player.radius) {
+      return;
+    }
+
+    const dist = Math.sqrt(distSq);
+
+    if (dist === 0) {
+      // Degenerate: player center landed exactly on the rect edge; push upward.
+      player.position.y = rect.y - player.radius;
+
+      return;
+    }
+
+    const overlap = player.radius - dist;
+
+    player.position.x += (dx / dist) * overlap;
+    player.position.y += (dy / dist) * overlap;
   }
 
   private resolvePlayerEnemyCollisions(player: Player): void {

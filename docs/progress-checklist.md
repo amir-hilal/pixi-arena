@@ -28,8 +28,8 @@
 - [x] Add world coordinate system
 - [x] Add camera follow
 - [x] Add ground/tile background
-- [ ] Add obstacles
-- [ ] Add obstacle collision
+- [x] Add obstacles
+- [x] Add obstacle collision
 - [ ] Add world boundaries
 
 ## Multiplayer
