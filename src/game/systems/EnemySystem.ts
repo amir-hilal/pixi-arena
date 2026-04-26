@@ -1,5 +1,6 @@
 import { Enemy } from '../entities/Enemy';
 import type { Position } from '../entities/Player';
+import type { Gate } from '../utils/world';
 
 interface Bounds {
   width: number;
@@ -9,6 +10,7 @@ interface Bounds {
 interface EnemyUpdate {
   bounds: Bounds;
   deltaSeconds: number;
+  gates: readonly Gate[];
   playerPosition: Position;
   survivalTimeSeconds: number;
 }
@@ -24,6 +26,9 @@ const MINIMUM_SPAWN_INTERVAL_SECONDS = 0.45;
 const SPAWN_RADIUS_MIN = 400;
 const SPAWN_RADIUS_MAX = 800;
 const TWO_PI = Math.PI * 2;
+// If the world-clamped spawn lands closer to the player than this, fall back
+// to the nearest gate instead.
+const GATE_FALLBACK_MIN_DIST = SPAWN_RADIUS_MIN * 0.6;
 
 export class EnemySystem {
   private readonly enemies: Enemy[] = [];
@@ -38,6 +43,7 @@ export class EnemySystem {
       update.deltaSeconds,
       update.bounds,
       update.playerPosition,
+      update.gates,
       update.survivalTimeSeconds,
     );
 
@@ -81,6 +87,7 @@ export class EnemySystem {
     deltaSeconds: number,
     bounds: Bounds,
     playerPosition: Position,
+    gates: readonly Gate[],
     survivalTimeSeconds: number,
   ): Enemy[] {
     this.elapsedSpawnSeconds += deltaSeconds;
@@ -95,7 +102,7 @@ export class EnemySystem {
 
     this.elapsedSpawnSeconds = 0;
 
-    const enemy = new Enemy(this.getSpawnPosition(playerPosition, bounds));
+    const enemy = new Enemy(this.getSpawnPosition(playerPosition, bounds, gates));
     this.enemies.push(enemy);
 
     return [enemy];
@@ -109,7 +116,7 @@ export class EnemySystem {
     );
   }
 
-  private getSpawnPosition(playerPosition: Position, bounds: Bounds): Position {
+  private getSpawnPosition(playerPosition: Position, bounds: Bounds, gates: readonly Gate[]): Position {
     const angle = Math.random() * TWO_PI;
     const radius = SPAWN_RADIUS_MIN + Math.random() * (SPAWN_RADIUS_MAX - SPAWN_RADIUS_MIN);
     const x = Math.min(
@@ -121,7 +128,36 @@ export class EnemySystem {
       bounds.height,
     );
 
+    // If world-edge clamping pulled the point too close to the player, fall back
+    // to the nearest gate so enemies always enter from a believable entry point.
+    const actualDist = Math.hypot(x - playerPosition.x, y - playerPosition.y);
+
+    if (actualDist < GATE_FALLBACK_MIN_DIST && gates.length > 0) {
+      return this.getNearestGateSpawn(playerPosition, gates);
+    }
+
     return { x, y };
+  }
+
+  private getNearestGateSpawn(playerPosition: Position, gates: readonly Gate[]): Position {
+    let nearestX = gates[0].spawnX;
+    let nearestY = gates[0].spawnY;
+    let nearestDist = Infinity;
+
+    for (const gate of gates) {
+      const dist = Math.hypot(
+        gate.spawnX - playerPosition.x,
+        gate.spawnY - playerPosition.y,
+      );
+
+      if (dist < nearestDist) {
+        nearestDist = dist;
+        nearestX = gate.spawnX;
+        nearestY = gate.spawnY;
+      }
+    }
+
+    return { x: nearestX, y: nearestY };
   }
 
   private moveEnemiesTowardPlayer(

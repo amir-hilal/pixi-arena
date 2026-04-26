@@ -1,5 +1,6 @@
 import type { InputDirection } from '../core/InputManager';
 import type { Player } from '../entities/Player';
+import { BOUNDARY_WALL_THICKNESS } from '../utils/world';
 
 interface Bounds {
   width: number;
@@ -49,19 +50,13 @@ export class MovementSystem {
   }
 
   private keepPlayerInBounds(player: Player, bounds: Bounds): void {
-    const maximumX = Math.max(player.radius, bounds.width - player.radius);
-    const maximumY = Math.max(player.radius, bounds.height - player.radius);
+    // Keep the player inside the visual boundary walls, not just world edge.
+    const minCoord = BOUNDARY_WALL_THICKNESS + player.radius;
+    const maximumX = Math.max(minCoord, bounds.width  - BOUNDARY_WALL_THICKNESS - player.radius);
+    const maximumY = Math.max(minCoord, bounds.height - BOUNDARY_WALL_THICKNESS - player.radius);
 
-    player.position.x = this.clamp(
-      player.position.x,
-      player.radius,
-      maximumX,
-    );
-    player.position.y = this.clamp(
-      player.position.y,
-      player.radius,
-      maximumY,
-    );
+    player.position.x = this.clamp(player.position.x, minCoord, maximumX);
+    player.position.y = this.clamp(player.position.y, minCoord, maximumY);
   }
 
   private syncRenderable(player: Player): void {

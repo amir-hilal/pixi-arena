@@ -10,9 +10,10 @@ import type { AudioManager } from '../core/AudioManager';
 import type { Renderer } from '../core/Renderer';
 import { VirtualJoystick } from '../ui/VirtualJoystick';
 import type { Scene } from './Scene';
-import { getWorldBounds } from '../utils/world';
+import { getWorldBounds, WORLD_GATES } from '../utils/world';
 import { Camera } from '../core/Camera';
 import { GroundBackground } from '../ui/GroundBackground';
+import { WorldBoundary } from '../ui/WorldBoundary';
 import { ObstacleSystem } from '../systems/ObstacleSystem';
 import type { ObstacleRect } from '../entities/Obstacle';
 
@@ -60,6 +61,7 @@ export class PlayingScene implements Scene {
   private player: Player | null = null;
   private worldContainer: Container | null = null;
   private ground: GroundBackground | null = null;
+  private boundary: WorldBoundary | null = null;
   private lives = INITIAL_LIVES;
   private livesText: Text | null = null;
   private score = INITIAL_SCORE;
@@ -102,6 +104,9 @@ export class PlayingScene implements Scene {
     this.renderer.addToStage(this.livesText);
     this.ground = new GroundBackground();
     this.worldContainer.addChild(this.ground.renderable);
+
+    this.boundary = new WorldBoundary();
+    this.worldContainer.addChild(this.boundary.renderable);
 
     for (const obstacle of this.obstacleSystem.initialize()) {
       this.worldContainer.addChild(obstacle.renderable);
@@ -164,6 +169,7 @@ export class PlayingScene implements Scene {
     }
 
     this.ground = null;
+    this.boundary = null;
 
     if (this.scoreText !== null) {
       this.renderer.removeFromStage(this.scoreText);
@@ -281,6 +287,7 @@ export class PlayingScene implements Scene {
     const result = this.enemySystem.update({
       bounds: getWorldBounds(),
       deltaSeconds,
+      gates: WORLD_GATES,
       playerPosition: player.position,
       survivalTimeSeconds: this.survivalTimeSeconds,
     });
