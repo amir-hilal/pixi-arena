@@ -84,7 +84,6 @@ export class PlayingScene implements Scene {
     this.player = new Player(this.getInitialPlayerPosition());
     this.renderer.addToStage(this.player.renderable);
     this.initializeVirtualJoystick();
-    window.addEventListener('resize', this.handleViewportResize);
     this.isInitialized = true;
   }
 
@@ -106,7 +105,6 @@ export class PlayingScene implements Scene {
   }
 
   public destroy(): void {
-    window.removeEventListener('resize', this.handleViewportResize);
     this.inputManager.destroy();
     this.destroyVirtualJoystick();
     this.removeEnemies(this.enemySystem.destroy());
@@ -200,7 +198,7 @@ export class PlayingScene implements Scene {
       return;
     }
 
-    this.virtualJoystick = new VirtualJoystick(this.renderer.getViewportSize());
+    this.virtualJoystick = new VirtualJoystick();
     this.renderer.addToStage(this.virtualJoystick.renderable);
   }
 
@@ -213,10 +211,6 @@ export class PlayingScene implements Scene {
     this.virtualJoystick.destroy();
     this.virtualJoystick = null;
   }
-
-  private readonly handleViewportResize = (): void => {
-    this.virtualJoystick?.resize(this.renderer.getViewportSize());
-  };
 
   private getMovementDirection(): InputDirection {
     const keyboardDirection = this.inputManager.getMovementDirection();
