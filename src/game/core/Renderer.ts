@@ -36,6 +36,12 @@ export class Renderer {
     application.stage.addChild(renderable);
   }
 
+  public removeFromStage(renderable: Container): void {
+    const application = this.getInitializedApplication();
+
+    application.stage.removeChild(renderable);
+  }
+
   public getViewportSize(): ViewportSize {
     const application = this.getInitializedApplication();
 
