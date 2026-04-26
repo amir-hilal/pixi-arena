@@ -1,10 +1,9 @@
 import { Graphics } from 'pixi.js';
 import { PLAYER_RADIUS, PLAYER_SPEED } from '../../shared/constants/player';
+import type { Vector2 } from '../../shared/types/index';
 
-export interface Position {
-  x: number;
-  y: number;
-}
+/** World-space position. Aliased to Vector2 for shared simulation compatibility. */
+export type Position = Vector2;
 
 const PLAYER_COLOR = 0x4fd1c5;
 

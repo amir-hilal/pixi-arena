@@ -1,20 +1,16 @@
 import { WORLD_WIDTH, WORLD_HEIGHT } from '../utils/world';
+import type { Vector2 } from '../../shared/types/index';
 
 interface ViewportSize {
   width: number;
   height: number;
 }
 
-interface Position {
-  x: number;
-  y: number;
-}
-
 export class Camera {
   public x = 0;
   public y = 0;
 
-  public update(playerPosition: Position, viewport: ViewportSize): void {
+  public update(playerPosition: Vector2, viewport: ViewportSize): void {
     const targetX = viewport.width / 2 - playerPosition.x;
     const targetY = viewport.height / 2 - playerPosition.y;
     const minOffsetX = Math.min(0, viewport.width - WORLD_WIDTH);
