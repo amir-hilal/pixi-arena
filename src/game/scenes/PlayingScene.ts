@@ -1,4 +1,4 @@
-import { Text } from 'pixi.js';
+import { Container, Text } from 'pixi.js';
 import { Player, type Position } from '../entities/Player';
 import type { Enemy } from '../entities/Enemy';
 import { CollisionSystem } from '../systems/CollisionSystem';
@@ -11,6 +11,7 @@ import type { Renderer } from '../core/Renderer';
 import { VirtualJoystick } from '../ui/VirtualJoystick';
 import type { Scene } from './Scene';
 import { getWorldBounds } from '../utils/world';
+import { Camera } from '../core/Camera';
 
 const INITIAL_PLAYER_POSITION_RATIO = 0.5;
 const INITIAL_SCORE = 0;
@@ -41,11 +42,13 @@ const DAMAGE_SHAKE_FREQUENCY = 70;
 const NEUTRAL_DIRECTION = 0;
 
 export class PlayingScene implements Scene {
+  private readonly camera = new Camera();
   private readonly collisionSystem = new CollisionSystem();
   private readonly enemySystem = new EnemySystem();
   private readonly inputManager = new InputManager();
   private readonly movementSystem = new MovementSystem();
   private player: Player | null = null;
+  private worldContainer: Container | null = null;
   private lives = INITIAL_LIVES;
   private livesText: Text | null = null;
   private score = INITIAL_SCORE;
@@ -57,6 +60,8 @@ export class PlayingScene implements Scene {
   private virtualJoystick: VirtualJoystick | null = null;
   private damageFlashSeconds = 0;
   private damageShakeSeconds = 0;
+  private shakeOffsetX = 0;
+  private shakeOffsetY = 0;
   private isInitialized = false;
 
   public constructor(
@@ -82,8 +87,10 @@ export class PlayingScene implements Scene {
     this.renderer.addToStage(this.scoreText);
     this.renderer.addToStage(this.timerText);
     this.renderer.addToStage(this.livesText);
+    this.worldContainer = new Container();
+    this.renderer.addToStage(this.worldContainer);
     this.player = new Player(this.getInitialPlayerPosition());
-    this.renderer.addToStage(this.player.renderable);
+    this.worldContainer.addChild(this.player.renderable);
     this.initializeVirtualJoystick();
     this.isInitialized = true;
   }
@@ -94,15 +101,24 @@ export class PlayingScene implements Scene {
     }
 
     this.updateSurvivalScore(deltaSeconds);
-    this.updateDamageFeedback(deltaSeconds);
     this.movementSystem.update({
       bounds: getWorldBounds(),
       deltaSeconds,
       movementDirection: this.getMovementDirection(),
       player: this.player,
     });
+    this.camera.update(this.player.position, this.renderer.getViewportSize());
+    this.updateDamageFeedback(deltaSeconds);
+    this.syncWorldContainerPosition();
     this.updateEnemies(deltaSeconds, this.player);
     this.resolvePlayerEnemyCollisions(this.player);
+  }
+
+  public resize(width: number, height: number): void {
+    if (this.player !== null) {
+      this.camera.update(this.player.position, { width, height });
+      this.syncWorldContainerPosition();
+    }
   }
 
   public destroy(): void {
@@ -111,9 +127,15 @@ export class PlayingScene implements Scene {
     this.removeEnemies(this.enemySystem.destroy());
 
     if (this.player !== null) {
-      this.renderer.removeFromStage(this.player.renderable);
+      this.worldContainer?.removeChild(this.player.renderable);
       this.player.renderable.destroy();
       this.player = null;
+    }
+
+    if (this.worldContainer !== null) {
+      this.renderer.removeFromStage(this.worldContainer);
+      this.worldContainer.destroy();
+      this.worldContainer = null;
     }
 
     if (this.scoreText !== null) {
@@ -140,15 +162,17 @@ export class PlayingScene implements Scene {
     this.displayedScore = INITIAL_SCORE;
     this.survivalTimeSeconds = INITIAL_SURVIVAL_TIME_SECONDS;
     this.displayedSurvivalSeconds = INITIAL_SURVIVAL_TIME_SECONDS;
+    this.shakeOffsetX = 0;
+    this.shakeOffsetY = 0;
     this.isInitialized = false;
   }
 
   private getInitialPlayerPosition(): Position {
-    const viewportSize = this.renderer.getViewportSize();
+    const worldBounds = getWorldBounds();
 
     return {
-      x: viewportSize.width * INITIAL_PLAYER_POSITION_RATIO,
-      y: viewportSize.height * INITIAL_PLAYER_POSITION_RATIO,
+      x: worldBounds.width * INITIAL_PLAYER_POSITION_RATIO,
+      y: worldBounds.height * INITIAL_PLAYER_POSITION_RATIO,
     };
   }
 
@@ -235,7 +259,7 @@ export class PlayingScene implements Scene {
     });
 
     for (const enemy of result.spawnedEnemies) {
-      this.renderer.addToStage(enemy.renderable);
+      this.worldContainer?.addChild(enemy.renderable);
     }
 
     this.removeEnemies(result.removedEnemies);
@@ -243,7 +267,7 @@ export class PlayingScene implements Scene {
 
   private removeEnemies(enemies: Enemy[]): void {
     for (const enemy of enemies) {
-      this.renderer.removeFromStage(enemy.renderable);
+      this.worldContainer?.removeChild(enemy.renderable);
       enemy.renderable.destroy();
     }
   }
@@ -305,6 +329,15 @@ export class PlayingScene implements Scene {
       this.damageFlashSeconds > 0 ? DAMAGED_PLAYER_ALPHA : DEFAULT_PLAYER_ALPHA;
   }
 
+  private syncWorldContainerPosition(): void {
+    if (this.worldContainer !== null) {
+      this.worldContainer.position.set(
+        this.camera.x + this.shakeOffsetX,
+        this.camera.y + this.shakeOffsetY,
+      );
+    }
+  }
+
   private updateStageShake(deltaSeconds: number): void {
     if (this.damageShakeSeconds <= 0) {
       return;
@@ -313,21 +346,22 @@ export class PlayingScene implements Scene {
     this.damageShakeSeconds = Math.max(0, this.damageShakeSeconds - deltaSeconds);
 
     if (this.damageShakeSeconds === 0) {
-      this.renderer.setStageOffset(0, 0);
+      this.shakeOffsetX = 0;
+      this.shakeOffsetY = 0;
       return;
     }
 
     const shakeProgress = this.damageShakeSeconds * DAMAGE_SHAKE_FREQUENCY;
-    const offsetX = Math.sin(shakeProgress) * DAMAGE_SHAKE_INTENSITY;
-    const offsetY = Math.cos(shakeProgress) * DAMAGE_SHAKE_INTENSITY;
 
-    this.renderer.setStageOffset(offsetX, offsetY);
+    this.shakeOffsetX = Math.sin(shakeProgress) * DAMAGE_SHAKE_INTENSITY;
+    this.shakeOffsetY = Math.cos(shakeProgress) * DAMAGE_SHAKE_INTENSITY;
   }
 
   private resetDamageFeedback(): void {
     this.damageFlashSeconds = 0;
     this.damageShakeSeconds = 0;
-    this.renderer.setStageOffset(0, 0);
+    this.shakeOffsetX = 0;
+    this.shakeOffsetY = 0;
 
     if (this.player !== null) {
       this.player.renderable.alpha = DEFAULT_PLAYER_ALPHA;
