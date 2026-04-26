@@ -1,6 +1,7 @@
 import { Enemy } from '../entities/Enemy';
 import type { Position } from '../entities/Player';
 import type { Gate } from '../utils/world';
+import type { ObstacleRect } from '../entities/Obstacle';
 
 interface Bounds {
   width: number;
@@ -11,13 +12,22 @@ interface EnemyUpdate {
   bounds: Bounds;
   deltaSeconds: number;
   gates: readonly Gate[];
+  obstacles: readonly ObstacleRect[];
   playerPosition: Position;
   survivalTimeSeconds: number;
+  viewport: ViewportRect;
 }
 
 interface EnemyUpdateResult {
   removedEnemies: Enemy[];
   spawnedEnemies: Enemy[];
+}
+
+interface ViewportRect {
+  worldLeft: number;
+  worldTop: number;
+  worldRight: number;
+  worldBottom: number;
 }
 
 const SPAWN_INTERVAL_SECONDS = 1.5;
@@ -29,6 +39,10 @@ const TWO_PI = Math.PI * 2;
 // If the world-clamped spawn lands closer to the player than this, fall back
 // to the nearest gate instead.
 const GATE_FALLBACK_MIN_DIST = SPAWN_RADIUS_MIN * 0.6;
+// Max attempts to find a valid near-player spawn before using a gate.
+const MAX_SPAWN_RETRIES = 5;
+// Minimum clearance from any obstacle rect edge for a spawn point.
+const SPAWN_SAFE_RADIUS = 16;
 
 export class EnemySystem {
   private readonly enemies: Enemy[] = [];
@@ -44,6 +58,8 @@ export class EnemySystem {
       update.bounds,
       update.playerPosition,
       update.gates,
+      update.obstacles,
+      update.viewport,
       update.survivalTimeSeconds,
     );
 
@@ -88,6 +104,8 @@ export class EnemySystem {
     bounds: Bounds,
     playerPosition: Position,
     gates: readonly Gate[],
+    obstacles: readonly ObstacleRect[],
+    viewport: ViewportRect,
     survivalTimeSeconds: number,
   ): Enemy[] {
     this.elapsedSpawnSeconds += deltaSeconds;
@@ -102,7 +120,9 @@ export class EnemySystem {
 
     this.elapsedSpawnSeconds = 0;
 
-    const enemy = new Enemy(this.getSpawnPosition(playerPosition, bounds, gates));
+    const enemy = new Enemy(
+      this.getSpawnPosition(playerPosition, bounds, gates, obstacles, viewport),
+    );
     this.enemies.push(enemy);
 
     return [enemy];
@@ -116,48 +136,99 @@ export class EnemySystem {
     );
   }
 
-  private getSpawnPosition(playerPosition: Position, bounds: Bounds, gates: readonly Gate[]): Position {
-    const angle = Math.random() * TWO_PI;
-    const radius = SPAWN_RADIUS_MIN + Math.random() * (SPAWN_RADIUS_MAX - SPAWN_RADIUS_MIN);
-    const x = Math.min(
-      Math.max(0, playerPosition.x + Math.cos(angle) * radius),
-      bounds.width,
-    );
-    const y = Math.min(
-      Math.max(0, playerPosition.y + Math.sin(angle) * radius),
-      bounds.height,
-    );
+  private getSpawnPosition(
+    playerPosition: Position,
+    bounds: Bounds,
+    gates: readonly Gate[],
+    obstacles: readonly ObstacleRect[],
+    viewport: ViewportRect,
+  ): Position {
+    // Try several random near-player angles; skip positions that are too close
+    // (due to world-edge clamping) or land inside an obstacle.
+    for (let attempt = 0; attempt < MAX_SPAWN_RETRIES; attempt++) {
+      const angle = Math.random() * TWO_PI;
+      const radius = SPAWN_RADIUS_MIN + Math.random() * (SPAWN_RADIUS_MAX - SPAWN_RADIUS_MIN);
+      const x = Math.min(
+        Math.max(0, playerPosition.x + Math.cos(angle) * radius),
+        bounds.width,
+      );
+      const y = Math.min(
+        Math.max(0, playerPosition.y + Math.sin(angle) * radius),
+        bounds.height,
+      );
+      const actualDist = Math.hypot(x - playerPosition.x, y - playerPosition.y);
 
-    // If world-edge clamping pulled the point too close to the player, fall back
-    // to the nearest gate so enemies always enter from a believable entry point.
-    const actualDist = Math.hypot(x - playerPosition.x, y - playerPosition.y);
-
-    if (actualDist < GATE_FALLBACK_MIN_DIST && gates.length > 0) {
-      return this.getNearestGateSpawn(playerPosition, gates);
+      if (
+        actualDist >= GATE_FALLBACK_MIN_DIST &&
+        !this.isInsideObstacle({ x, y }, obstacles)
+      ) {
+        return { x, y };
+      }
     }
 
-    return { x, y };
+    // All near-player attempts failed — use a gate spawn.
+    return this.selectGateSpawn(playerPosition, gates, viewport, obstacles);
   }
 
-  private getNearestGateSpawn(playerPosition: Position, gates: readonly Gate[]): Position {
-    let nearestX = gates[0].spawnX;
-    let nearestY = gates[0].spawnY;
-    let nearestDist = Infinity;
+  /**
+   * Picks the best gate to spawn from.
+   * Prefers off-screen gates so the enemy appears naturally from outside the
+   * visible area. Among qualifying gates, picks the one nearest to the player.
+   * Falls back to the nearest gate if all are on-screen.
+   */
+  private selectGateSpawn(
+    playerPosition: Position,
+    gates: readonly Gate[],
+    viewport: ViewportRect,
+    obstacles: readonly ObstacleRect[],
+  ): Position {
+    const offScreen = gates.filter((gate) => !this.isGateInViewport(gate, viewport));
+    const candidates = offScreen.length > 0 ? offScreen : [...gates];
 
-    for (const gate of gates) {
+    let bestX = candidates[0].spawnX;
+    let bestY = candidates[0].spawnY;
+    let bestDist = Infinity;
+
+    for (const gate of candidates) {
+      if (this.isInsideObstacle({ x: gate.spawnX, y: gate.spawnY }, obstacles)) {
+        continue;
+      }
+
       const dist = Math.hypot(
         gate.spawnX - playerPosition.x,
         gate.spawnY - playerPosition.y,
       );
 
-      if (dist < nearestDist) {
-        nearestDist = dist;
-        nearestX = gate.spawnX;
-        nearestY = gate.spawnY;
+      if (dist < bestDist) {
+        bestDist = dist;
+        bestX = gate.spawnX;
+        bestY = gate.spawnY;
       }
     }
 
-    return { x: nearestX, y: nearestY };
+    return { x: bestX, y: bestY };
+  }
+
+  private isGateInViewport(gate: Gate, viewport: ViewportRect): boolean {
+    return (
+      gate.spawnX >= viewport.worldLeft &&
+      gate.spawnX <= viewport.worldRight &&
+      gate.spawnY >= viewport.worldTop &&
+      gate.spawnY <= viewport.worldBottom
+    );
+  }
+
+  private isInsideObstacle(pos: Position, obstacles: readonly ObstacleRect[]): boolean {
+    for (const rect of obstacles) {
+      const nearestX = Math.max(rect.x, Math.min(pos.x, rect.x + rect.width));
+      const nearestY = Math.max(rect.y, Math.min(pos.y, rect.y + rect.height));
+
+      if (Math.hypot(pos.x - nearestX, pos.y - nearestY) < SPAWN_SAFE_RADIUS) {
+        return true;
+      }
+    }
+
+    return false;
   }
 
   private moveEnemiesTowardPlayer(

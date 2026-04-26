@@ -284,12 +284,20 @@ export class PlayingScene implements Scene {
   }
 
   private updateEnemies(deltaSeconds: number, player: Player): void {
+    const viewport = this.renderer.getViewportSize();
     const result = this.enemySystem.update({
       bounds: getWorldBounds(),
       deltaSeconds,
       gates: WORLD_GATES,
+      obstacles: this.obstacleSystem.getObstacles().map((o) => o.rect),
       playerPosition: player.position,
       survivalTimeSeconds: this.survivalTimeSeconds,
+      viewport: {
+        worldLeft:   -this.camera.x,
+        worldTop:    -this.camera.y,
+        worldRight:  -this.camera.x + viewport.width,
+        worldBottom: -this.camera.y + viewport.height,
+      },
     });
 
     for (const enemy of result.spawnedEnemies) {

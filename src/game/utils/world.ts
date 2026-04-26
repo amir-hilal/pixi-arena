@@ -19,8 +19,8 @@ export interface Gate {
   spawnY: number;
 }
 
-// Spawn position is past the wall thickness with a small buffer.
-const GATE_SPAWN_INSET = BOUNDARY_WALL_THICKNESS + 22;
+// Spawn position is inset far enough to appear visibly inside the gate opening.
+const GATE_SPAWN_INSET = BOUNDARY_WALL_THICKNESS + 62;
 
 /** Four cardinal gates, one per world edge. Used by EnemySystem as fallback spawn points. */
 export const WORLD_GATES: readonly Gate[] = [

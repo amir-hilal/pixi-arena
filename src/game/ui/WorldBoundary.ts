@@ -44,8 +44,8 @@ export class WorldBoundary {
     this.gateH(g, cx, 0, T);
 
     // ── South wall ──────────────────────────────────────────────────────────
-    this.wallH(g, 0,              H - T, cx - GATE_HALF,      T);
-    this.wallH(g, cx + GATE_HALF, H - T, W - cx - GATE_HALF, T);
+    this.wallH(g, 0,              H - T, cx - GATE_HALF,      T, true);
+    this.wallH(g, cx + GATE_HALF, H - T, W - cx - GATE_HALF, T, true);
     this.gateH(g, cx, H - T, T);
 
     // ── West wall (between the N and S corner blocks, gate gap at cy) ───────
@@ -54,21 +54,22 @@ export class WorldBoundary {
     this.gateV(g, cy, 0, T);
 
     // ── East wall ────────────────────────────────────────────────────────────
-    this.wallV(g, W - T, T,             T, cy - GATE_HALF - T);
-    this.wallV(g, W - T, cy + GATE_HALF, T, H - T - cy - GATE_HALF);
+    this.wallV(g, W - T, T,             T, cy - GATE_HALF - T, true);
+    this.wallV(g, W - T, cy + GATE_HALF, T, H - T - cy - GATE_HALF, true);
     this.gateV(g, cy, W - T, T);
   }
 
   // ── Horizontal wall segment ───────────────────────────────────────────────
 
-  private wallH(g: Graphics, x: number, y: number, w: number, h: number): void {
+  private wallH(g: Graphics, x: number, y: number, w: number, h: number, flip = false): void {
     if (w <= 0 || h <= 0) {
       return;
     }
 
     g.rect(x, y, w, h).fill(WALL_COLOR);
-    // Outer-edge highlight (top face on N wall, bottom face on S wall both use y)
-    g.rect(x, y, w, 3).fill(WALL_EDGE);
+    // Outer-edge highlight: top edge for North wall (flip=false), bottom edge for South wall (flip=true).
+    const hy = flip ? y + h - 3 : y;
+    g.rect(x, hy, w, 3).fill(WALL_EDGE);
     // Vertical mortar joints
     const step = 44;
 
@@ -79,14 +80,15 @@ export class WorldBoundary {
 
   // ── Vertical wall segment ─────────────────────────────────────────────────
 
-  private wallV(g: Graphics, x: number, y: number, w: number, h: number): void {
+  private wallV(g: Graphics, x: number, y: number, w: number, h: number, flip = false): void {
     if (w <= 0 || h <= 0) {
       return;
     }
 
     g.rect(x, y, w, h).fill(WALL_COLOR);
-    // Outer-edge highlight (left face on W wall, same x used for E wall)
-    g.rect(x, y, 3, h).fill(WALL_EDGE);
+    // Outer-edge highlight: left edge for West wall (flip=false), right edge for East wall (flip=true).
+    const hx = flip ? x + w - 3 : x;
+    g.rect(hx, y, 3, h).fill(WALL_EDGE);
     // Horizontal mortar joints
     const step = 44;
 
