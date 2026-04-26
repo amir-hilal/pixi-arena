@@ -90,20 +90,22 @@ export class SocketClient<
   }
 
   private bindSubscription(subscription: Subscription): void {
-    const onEvent = this.getSocket().on as (
-      event: string,
-      listener: (...args: any[]) => void,
-    ) => UntypedSocket;
+    const socket = this.socket;
 
-    onEvent(subscription.event, subscription.handler);
+    if (socket === null) {
+      return;
+    }
+
+    socket.on(subscription.event, subscription.handler);
   }
 
   private unbindSubscription(subscription: Subscription): void {
-    const offEvent = this.getSocket().off as (
-      event: string,
-      listener: (...args: any[]) => void,
-    ) => UntypedSocket;
+    const socket = this.socket;
 
-    offEvent(subscription.event, subscription.handler);
+    if (socket === null) {
+      return;
+    }
+
+    socket.off(subscription.event, subscription.handler);
   }
 }

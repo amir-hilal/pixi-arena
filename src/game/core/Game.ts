@@ -15,6 +15,8 @@ import { AudioManager } from './AudioManager';
 import { Loop } from './Loop';
 import { Renderer } from './Renderer';
 
+const DEFAULT_SOCKET_URL = 'http://localhost:3001';
+
 export class Game {
   private readonly audioManager = new AudioManager();
   private readonly renderer = new Renderer();
@@ -106,6 +108,10 @@ export class Game {
   };
 
   private readonly showMultiplayerMenuScene = (): void => {
+    if (!this.socketClient.isConnected()) {
+      this.socketClient.connect(getSocketUrl());
+    }
+
     this.sceneManager?.setScene(
       new MultiplayerMenuScene(
         this.renderer,
@@ -149,4 +155,11 @@ export class Game {
       ),
     );
   };
+}
+
+function getSocketUrl(): string {
+  return (
+    (import.meta.env.VITE_SOCKET_URL as string | undefined) ??
+    DEFAULT_SOCKET_URL
+  );
 }
