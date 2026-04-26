@@ -10,9 +10,9 @@
 ## Game Experience
 
 - [x] Add scene flow: Home, Playing, Game Over
-- [ ] Add start/restart flow
-- [ ] Add health/lives system
-- [ ] Update rules: avoid enemies instead of scoring by collision
+- [x] Add start/restart flow
+- [x] Add health/lives system
+- [x] Update rules: avoid enemies instead of scoring by collision
 - [ ] Add collectibles or survival-based scoring
 - [ ] Add difficulty scaling over time
 - [ ] Add basic sound/visual feedback

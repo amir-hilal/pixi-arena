@@ -1,3 +1,4 @@
+import { GameOverScene } from '../scenes/GameOverScene';
 import { HomeScene } from '../scenes/HomeScene';
 import { PlayingScene } from '../scenes/PlayingScene';
 import { SceneManager } from '../scenes/SceneManager';
@@ -62,6 +63,14 @@ export class Game {
   }
 
   private readonly startPlayingScene = (): void => {
-    this.sceneManager?.setScene(new PlayingScene(this.renderer));
+    this.sceneManager?.setScene(
+      new PlayingScene(this.renderer, this.showGameOverScene),
+    );
+  };
+
+  private readonly showGameOverScene = (finalScore: number): void => {
+    this.sceneManager?.setScene(
+      new GameOverScene(this.renderer, finalScore, this.startPlayingScene),
+    );
   };
 }
