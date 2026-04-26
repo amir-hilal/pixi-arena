@@ -10,6 +10,7 @@ interface EnemyUpdate {
   bounds: ViewportBounds;
   deltaSeconds: number;
   playerPosition: Position;
+  survivalTimeSeconds: number;
 }
 
 interface EnemyUpdateResult {
@@ -18,6 +19,8 @@ interface EnemyUpdateResult {
 }
 
 const SPAWN_INTERVAL_SECONDS = 1.5;
+const SPAWN_INTERVAL_SCALE_FACTOR = 0.02;
+const MINIMUM_SPAWN_INTERVAL_SECONDS = 0.45;
 const SPAWN_SIDE_COUNT = 4;
 const TOP_SIDE_INDEX = 0;
 const RIGHT_SIDE_INDEX = 1;
@@ -34,7 +37,11 @@ export class EnemySystem {
   }
 
   public update(update: EnemyUpdate): EnemyUpdateResult {
-    const spawnedEnemies = this.spawnEnemies(update.deltaSeconds, update.bounds);
+    const spawnedEnemies = this.spawnEnemies(
+      update.deltaSeconds,
+      update.bounds,
+      update.survivalTimeSeconds,
+    );
 
     this.moveEnemiesTowardPlayer(
       update.playerPosition,
@@ -75,10 +82,15 @@ export class EnemySystem {
   private spawnEnemies(
     deltaSeconds: number,
     bounds: ViewportBounds,
+    survivalTimeSeconds: number,
   ): Enemy[] {
     this.elapsedSpawnSeconds += deltaSeconds;
 
-    if (this.elapsedSpawnSeconds < SPAWN_INTERVAL_SECONDS) {
+    const spawnIntervalSeconds = this.getSpawnIntervalSeconds(
+      survivalTimeSeconds,
+    );
+
+    if (this.elapsedSpawnSeconds < spawnIntervalSeconds) {
       return [];
     }
 
@@ -88,6 +100,14 @@ export class EnemySystem {
     this.enemies.push(enemy);
 
     return [enemy];
+  }
+
+  private getSpawnIntervalSeconds(survivalTimeSeconds: number): number {
+    return Math.max(
+      MINIMUM_SPAWN_INTERVAL_SECONDS,
+      SPAWN_INTERVAL_SECONDS -
+        survivalTimeSeconds * SPAWN_INTERVAL_SCALE_FACTOR,
+    );
   }
 
   private getSpawnPosition(bounds: ViewportBounds): Position {

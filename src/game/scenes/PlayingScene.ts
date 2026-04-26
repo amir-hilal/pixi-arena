@@ -10,15 +10,24 @@ import type { Scene } from './Scene';
 
 const INITIAL_PLAYER_POSITION_RATIO = 0.5;
 const INITIAL_SCORE = 0;
+const INITIAL_SURVIVAL_TIME_SECONDS = 0;
 const INITIAL_LIVES = 3;
+const POINTS_PER_SECOND = 10;
 const SCORE_TEXT_X = 16;
 const SCORE_TEXT_Y = 12;
 const SCORE_TEXT_COLOR = 0xffffff;
 const SCORE_TEXT_SIZE = 20;
 const LIVES_TEXT_X = 16;
-const LIVES_TEXT_Y = 40;
+const LIVES_TEXT_Y = 68;
 const LIVES_TEXT_COLOR = 0xffffff;
 const LIVES_TEXT_SIZE = 20;
+const TIMER_TEXT_X = 16;
+const TIMER_TEXT_Y = 40;
+const TIMER_TEXT_COLOR = 0xffffff;
+const TIMER_TEXT_SIZE = 20;
+const SECONDS_PER_MINUTE = 60;
+const TIMER_PART_PADDING_LENGTH = 2;
+const TIMER_PART_PADDING_VALUE = '0';
 
 export class PlayingScene implements Scene {
   private readonly collisionSystem = new CollisionSystem();
@@ -29,7 +38,11 @@ export class PlayingScene implements Scene {
   private lives = INITIAL_LIVES;
   private livesText: Text | null = null;
   private score = INITIAL_SCORE;
+  private displayedScore = INITIAL_SCORE;
   private scoreText: Text | null = null;
+  private survivalTimeSeconds = INITIAL_SURVIVAL_TIME_SECONDS;
+  private displayedSurvivalSeconds = INITIAL_SURVIVAL_TIME_SECONDS;
+  private timerText: Text | null = null;
   private isInitialized = false;
 
   public constructor(
@@ -45,9 +58,14 @@ export class PlayingScene implements Scene {
     this.inputManager.initialize();
     this.lives = INITIAL_LIVES;
     this.score = INITIAL_SCORE;
+    this.displayedScore = INITIAL_SCORE;
+    this.survivalTimeSeconds = INITIAL_SURVIVAL_TIME_SECONDS;
+    this.displayedSurvivalSeconds = INITIAL_SURVIVAL_TIME_SECONDS;
     this.scoreText = this.createScoreText();
+    this.timerText = this.createTimerText();
     this.livesText = this.createLivesText();
     this.renderer.addToStage(this.scoreText);
+    this.renderer.addToStage(this.timerText);
     this.renderer.addToStage(this.livesText);
     this.player = new Player(this.getInitialPlayerPosition());
     this.renderer.addToStage(this.player.renderable);
@@ -59,6 +77,7 @@ export class PlayingScene implements Scene {
       return;
     }
 
+    this.updateSurvivalScore(deltaSeconds);
     this.movementSystem.update({
       bounds: this.renderer.getViewportSize(),
       deltaSeconds,
@@ -91,8 +110,17 @@ export class PlayingScene implements Scene {
       this.livesText = null;
     }
 
+    if (this.timerText !== null) {
+      this.renderer.removeFromStage(this.timerText);
+      this.timerText.destroy();
+      this.timerText = null;
+    }
+
     this.lives = INITIAL_LIVES;
     this.score = INITIAL_SCORE;
+    this.displayedScore = INITIAL_SCORE;
+    this.survivalTimeSeconds = INITIAL_SURVIVAL_TIME_SECONDS;
+    this.displayedSurvivalSeconds = INITIAL_SURVIVAL_TIME_SECONDS;
     this.isInitialized = false;
   }
 
@@ -119,6 +147,20 @@ export class PlayingScene implements Scene {
     return scoreText;
   }
 
+  private createTimerText(): Text {
+    const timerText = new Text({
+      style: {
+        fill: TIMER_TEXT_COLOR,
+        fontSize: TIMER_TEXT_SIZE,
+      },
+      text: this.getTimerLabel(),
+    });
+
+    timerText.position.set(TIMER_TEXT_X, TIMER_TEXT_Y);
+
+    return timerText;
+  }
+
   private createLivesText(): Text {
     const livesText = new Text({
       style: {
@@ -138,6 +180,7 @@ export class PlayingScene implements Scene {
       bounds: this.renderer.getViewportSize(),
       deltaSeconds,
       playerPosition: player.position,
+      survivalTimeSeconds: this.survivalTimeSeconds,
     });
 
     for (const enemy of result.spawnedEnemies) {
@@ -174,7 +217,7 @@ export class PlayingScene implements Scene {
     this.removeEnemies(removedEnemies);
 
     if (this.lives <= 0) {
-      this.onGameOver(this.score);
+      this.onGameOver(this.getDisplayScore());
     }
   }
 
@@ -183,17 +226,72 @@ export class PlayingScene implements Scene {
     this.updateLivesText();
   }
 
+  private updateSurvivalScore(deltaSeconds: number): void {
+    this.score += POINTS_PER_SECOND * deltaSeconds;
+    this.survivalTimeSeconds += deltaSeconds;
+    this.updateScoreText();
+    this.updateTimerText();
+  }
+
+  private getDisplayScore(): number {
+    return Math.floor(this.score);
+  }
+
   private getScoreLabel(): string {
-    return `Score: ${this.score}`;
+    return `Score: ${this.displayedScore}`;
   }
 
   private getLivesLabel(): string {
     return `Lives: ${this.lives}`;
   }
 
+  private getTimerLabel(): string {
+    const minutes = Math.floor(
+      this.displayedSurvivalSeconds / SECONDS_PER_MINUTE,
+    );
+    const seconds = this.displayedSurvivalSeconds % SECONDS_PER_MINUTE;
+    const formattedMinutes = this.formatTimerPart(minutes);
+    const formattedSeconds = this.formatTimerPart(seconds);
+
+    return `Survival Time: ${formattedMinutes}:${formattedSeconds}`;
+  }
+
+  private formatTimerPart(value: number): string {
+    return value.toString().padStart(
+      TIMER_PART_PADDING_LENGTH,
+      TIMER_PART_PADDING_VALUE,
+    );
+  }
+
   private updateLivesText(): void {
     if (this.livesText !== null) {
       this.livesText.text = this.getLivesLabel();
+    }
+  }
+
+  private updateScoreText(): void {
+    const nextDisplayedScore = this.getDisplayScore();
+
+    if (
+      this.scoreText !== null &&
+      nextDisplayedScore !== this.displayedScore
+    ) {
+      this.displayedScore = nextDisplayedScore;
+      this.scoreText.text = this.getScoreLabel();
+    }
+  }
+
+  private updateTimerText(): void {
+    const nextDisplayedSurvivalSeconds = Math.floor(
+      this.survivalTimeSeconds,
+    );
+
+    if (
+      this.timerText !== null &&
+      nextDisplayedSurvivalSeconds !== this.displayedSurvivalSeconds
+    ) {
+      this.displayedSurvivalSeconds = nextDisplayedSurvivalSeconds;
+      this.timerText.text = this.getTimerLabel();
     }
   }
 }

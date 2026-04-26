@@ -13,8 +13,8 @@
 - [x] Add start/restart flow
 - [x] Add health/lives system
 - [x] Update rules: avoid enemies instead of scoring by collision
-- [ ] Add collectibles or survival-based scoring
-- [ ] Add difficulty scaling over time
+- [x] Add survival-based scoring
+- [x] Add difficulty scaling over time
 - [ ] Add basic sound/visual feedback
 - [ ] Add responsive UI polish
 

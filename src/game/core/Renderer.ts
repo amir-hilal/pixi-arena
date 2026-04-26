@@ -1,3 +1,4 @@
+import 'pixi.js/events';
 import { Application, type Container } from 'pixi.js';
 
 const BACKGROUND_COLOR = 0x101114;
