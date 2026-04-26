@@ -70,11 +70,13 @@ export class WorldBoundary {
     // Outer-edge highlight: top edge for North wall (flip=false), bottom edge for South wall (flip=true).
     const hy = flip ? y + h - 3 : y;
     g.rect(x, hy, w, 3).fill(WALL_EDGE);
-    // Vertical mortar joints
+    // Vertical mortar joints — anchored to the non-highlighted face so the 3px
+    // highlight strip is never overdrawn.
     const step = 44;
+    const mortarY = flip ? y : y + 3;
 
     for (let jx = x + step; jx < x + w; jx += step) {
-      g.rect(Math.round(jx), y + 3, 2, h - 3).fill(MORTAR_COLOR);
+      g.rect(Math.round(jx), mortarY, 2, h - 3).fill(MORTAR_COLOR);
     }
   }
 
