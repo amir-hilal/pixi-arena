@@ -530,10 +530,10 @@ interface LobbyState {
 ### Phase D — SocketClient
 *No scenes yet.*
 
-1. Create `src/api/SocketClient.ts`. Wrap `io()` from Socket.IO client.
-2. Typed `emit<T>(event, payload)` and `on<T>(event, handler)` / `off(event, handler)` methods.
-3. `connect(url)` and `disconnect()` lifecycle methods.
-4. `Game.ts` constructs one `SocketClient` instance. Connects on multiplayer entry. Disconnects on home return.
+1. ✅ Create `src/api/SocketClient.ts`. Wrap `io()` from Socket.IO client.
+2. ✅ Typed `emit<T>(event, payload)` and `on<T>(event, handler)` / `off(event, handler)` methods.
+3. ✅ `connect(url)` and `disconnect()` lifecycle methods.
+4. Deferred to multiplayer UI/lifecycle wiring: `Game.ts` constructs one `SocketClient` instance. Connects on multiplayer entry. Disconnects on home return.
 
 ### Phase E — HomeScene Split + MultiplayerMenuScene
 *First visible multiplayer UI.*

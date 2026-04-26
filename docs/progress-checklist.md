@@ -49,8 +49,9 @@
 - [x] Phase B.4 complete — `src/shared/simulation/damage.ts`; enemy collision collection, damage application, and winner computation extracted; `PlayingScene` delegates without entity refactors
 - [x] Phase C.1 complete — `Player` owns `PlayerState` + Pixi `Graphics`; movement/damage use `player.state`; temporary PlayerState casts removed
 - [x] Phase C.2 complete — `Enemy` owns `EnemyState` + Pixi `Graphics`; enemy movement/culling use `enemy.state.position`; Pixi sync is client-only
+- [x] Phase D complete — `src/api/SocketClient.ts`; typed Socket.IO transport wrapper only; no lobby/match/game lifecycle logic
 - [ ] Create realtime server
-- [ ] Add Socket.IO
+- [x] Add Socket.IO
 - [ ] Add lobby create/join/leave
 - [ ] Add player input events
 - [ ] Add server-authoritative movement
