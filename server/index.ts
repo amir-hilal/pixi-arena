@@ -1,0 +1,183 @@
+import cors from 'cors';
+import express from 'express';
+import { createServer } from 'node:http';
+import { Server } from 'socket.io';
+import type { Socket } from 'socket.io';
+import {
+  createLobby,
+  getLobbyForSocket,
+  isHost,
+  joinLobby,
+  removePlayer,
+  setLobbyStatus,
+} from './lobbyManager.js';
+import type {
+  LobbyCreatePayload,
+  LobbyErrorPayload,
+  LobbyJoinPayload,
+  LobbyState,
+  MatchCountdownPayload,
+  MatchStartedPayload,
+} from './types.js';
+
+const PORT = Number(process.env.PORT ?? 3001);
+const FRONTEND_ORIGIN = process.env.FRONTEND_ORIGIN ?? 'http://localhost:5173';
+const COUNTDOWN_SECONDS = 3;
+
+const app = express();
+
+app.use(cors({ origin: FRONTEND_ORIGIN }));
+app.get('/health', (_request, response) => {
+  response.json({ ok: true });
+});
+
+const httpServer = createServer(app);
+const io = new Server(httpServer, {
+  cors: {
+    origin: FRONTEND_ORIGIN,
+  },
+});
+
+io.on('connection', (socket) => {
+  console.log(`socket connected: ${socket.id}`);
+
+  socket.on('lobby:create', (payload: LobbyCreatePayload) => {
+    try {
+      const lobby = createLobby(socket.id, payload.playerName);
+      socket.join(lobby.lobbyCode);
+      socket.emit('lobby:state', lobby);
+      console.log(`lobby create: ${lobby.lobbyCode} host=${socket.id}`);
+    } catch (error) {
+      emitLobbyError(socket.id, error);
+    }
+  });
+
+  socket.on('lobby:join', (payload: LobbyJoinPayload) => {
+    try {
+      const lobby = joinLobby(socket.id, payload.lobbyCode, payload.playerName);
+      socket.join(lobby.lobbyCode);
+      emitLobbyState(lobby);
+      console.log(`lobby join: ${lobby.lobbyCode} player=${socket.id}`);
+    } catch (error) {
+      emitLobbyError(socket.id, error);
+    }
+  });
+
+  socket.on('lobby:leave', () => {
+    leaveLobby(socket, 'leave');
+  });
+
+  socket.on('lobby:startMatch', () => {
+    const lobby = getLobbyForSocket(socket.id);
+
+    if (lobby === null) {
+      emitLobbyError(socket.id, new Error('Lobby not found.'));
+      return;
+    }
+
+    if (!isHost(socket.id, lobby)) {
+      emitLobbyError(socket.id, new Error('Only the host can start the match.'));
+      return;
+    }
+
+    if (lobby.status !== 'waiting') {
+      emitLobbyError(socket.id, new Error('Match is already in progress.'));
+      return;
+    }
+
+    console.log(`start match: ${lobby.lobbyCode} host=${socket.id}`);
+    startMockMatch(lobby);
+  });
+
+  socket.on('disconnect', () => {
+    leaveLobby(socket, 'disconnect');
+    console.log(`socket disconnected: ${socket.id}`);
+  });
+});
+
+httpServer.listen(PORT, () => {
+  console.log(`mock Socket.IO server listening on http://localhost:${PORT}`);
+  console.log(`CORS origin: ${FRONTEND_ORIGIN}`);
+});
+
+function leaveLobby(socket: Socket, reason: 'leave' | 'disconnect'): void {
+  const lobby = getLobbyForSocket(socket.id);
+
+  if (lobby === null) {
+    return;
+  }
+
+  const lobbyCode = lobby.lobbyCode;
+  const updatedLobby = removePlayer(socket.id);
+  socket.leave(lobbyCode);
+
+  console.log(`lobby ${reason}: ${lobbyCode} player=${socket.id}`);
+
+  if (updatedLobby !== null) {
+    emitLobbyState(updatedLobby);
+  }
+}
+
+function startMockMatch(lobby: LobbyState): void {
+  const updatedLobby = setLobbyStatus(lobby.lobbyCode, 'countdown');
+
+  if (updatedLobby === null) {
+    return;
+  }
+
+  emitLobbyState(updatedLobby);
+
+  let secondsRemaining = COUNTDOWN_SECONDS;
+  emitCountdown(updatedLobby.lobbyCode, secondsRemaining);
+
+  const interval = setInterval(() => {
+    secondsRemaining -= 1;
+
+    if (secondsRemaining > 0) {
+      emitCountdown(updatedLobby.lobbyCode, secondsRemaining);
+      return;
+    }
+
+    clearInterval(interval);
+
+    const playingLobby = setLobbyStatus(updatedLobby.lobbyCode, 'playing');
+
+    if (playingLobby === null) {
+      return;
+    }
+
+    emitLobbyState(playingLobby);
+    emitMatchStarted(playingLobby.lobbyCode);
+  }, 1000);
+}
+
+function emitLobbyState(lobby: LobbyState): void {
+  io.to(lobby.lobbyCode).emit('lobby:state', lobby);
+}
+
+function emitLobbyError(socketId: string, error: unknown): void {
+  const message = error instanceof Error ? error.message : 'Unexpected lobby error.';
+  const payload: LobbyErrorPayload = { message };
+
+  io.to(socketId).emit('lobby:error', payload);
+}
+
+function emitCountdown(lobbyCode: string, secondsRemaining: number): void {
+  const payload: MatchCountdownPayload = { secondsRemaining };
+
+  io.to(lobbyCode).emit('match:countdown', payload);
+}
+
+function emitMatchStarted(lobbyCode: string): void {
+  const payload: MatchStartedPayload = {
+    matchId: `mock-${Date.now().toString(36)}`,
+    initialState: {
+      tick: 0,
+      players: [],
+      enemies: [],
+      elapsedSeconds: 0,
+    },
+  };
+
+  io.to(lobbyCode).emit('match:started', payload);
+}
