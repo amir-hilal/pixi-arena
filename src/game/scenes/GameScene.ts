@@ -132,6 +132,10 @@ export class GameScene {
 
     const removedEnemies = this.enemySystem.removeEnemies(collidedEnemies);
 
+    if (removedEnemies.length === 0) {
+      return;
+    }
+
     this.addScore(removedEnemies.length * SCORE_PER_ENEMY);
     this.removeEnemies(removedEnemies);
   }
