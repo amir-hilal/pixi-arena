@@ -9,10 +9,14 @@ interface ViewportSize {
   height: number;
 }
 
+type ResizeCallback = (width: number, height: number) => void;
+
 export class Renderer {
   private application: Application | null = null;
   private initializationPromise: Promise<void> | null = null;
   private isInitialized = false;
+  private resizeObserver: ResizeObserver | null = null;
+  private resizeCallback: ResizeCallback | null = null;
 
   public async initialize(container: HTMLElement): Promise<void> {
     if (this.initializationPromise !== null) {
@@ -58,7 +62,14 @@ export class Renderer {
     application.stage.position.set(x, y);
   }
 
+  public setResizeCallback(callback: ResizeCallback): void {
+    this.resizeCallback = callback;
+  }
+
   public destroy(): void {
+    this.resizeObserver?.disconnect();
+    this.resizeObserver = null;
+    this.resizeCallback = null;
     this.application?.destroy(true);
     this.application = null;
     this.initializationPromise = null;
@@ -77,6 +88,18 @@ export class Renderer {
     this.application = application;
     this.isInitialized = true;
     this.mountCanvas(container, application);
+    this.resizeObserver = new ResizeObserver((entries) => {
+      const entry = entries[0];
+
+      if (entry === undefined || this.resizeCallback === null) {
+        return;
+      }
+
+      const { width, height } = entry.contentRect;
+
+      this.resizeCallback(Math.round(width), Math.round(height));
+    });
+    this.resizeObserver.observe(container);
   }
 
   private mountCanvas(container: HTMLElement, application: Application): void {

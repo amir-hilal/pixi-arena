@@ -9,6 +9,10 @@ export class SceneManager {
     this.activeScene.initialize();
   }
 
+  public resize(width: number, height: number): void {
+    this.activeScene?.resize?.(width, height);
+  }
+
   public update(deltaSeconds: number): void {
     this.activeScene?.update(deltaSeconds);
   }

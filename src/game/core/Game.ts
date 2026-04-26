@@ -51,6 +51,9 @@ export class Game {
   private async initializeGame(container: HTMLElement): Promise<void> {
     await this.renderer.initialize(container);
     this.sceneManager = new SceneManager();
+    this.renderer.setResizeCallback((width, height) => {
+      this.sceneManager?.resize(width, height);
+    });
     this.sceneManager.setScene(
       new HomeScene(this.renderer, this.audioManager, this.startPlayingScene),
     );

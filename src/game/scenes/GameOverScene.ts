@@ -54,6 +54,14 @@ export class GameOverScene implements Scene {
 
   public update(_deltaSeconds: number): void {}
 
+  public resize(width: number, height: number): void {
+    const centerY = height * CENTER_Y_RATIO;
+
+    this.gameOverText?.position.set(width / 2, centerY);
+    this.scoreText?.position.set(width / 2, centerY + SCORE_TEXT_Y_OFFSET);
+    this.restartText?.position.set(width / 2, centerY + RESTART_TEXT_Y_OFFSET);
+  }
+
   public destroy(): void {
     if (this.restartText !== null) {
       this.restartText.off('pointertap', this.handleRestart);

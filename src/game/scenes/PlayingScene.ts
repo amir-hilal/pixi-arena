@@ -268,7 +268,6 @@ export class PlayingScene implements Scene {
 
     if (this.lives <= 0) {
       this.onGameOver(this.getDisplayScore());
-      this.startVisualDamageFeedback();
       return;
     }
 

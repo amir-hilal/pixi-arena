@@ -38,6 +38,13 @@ export class HomeScene implements Scene {
 
   public update(_deltaSeconds: number): void {}
 
+  public resize(width: number, height: number): void {
+    const centerY = height * TITLE_TEXT_Y_RATIO;
+
+    this.titleText?.position.set(width / 2, centerY);
+    this.startText?.position.set(width / 2, centerY + START_TEXT_Y_OFFSET);
+  }
+
   public destroy(): void {
     if (this.startText !== null) {
       this.startText.off('pointertap', this.handleStart);
