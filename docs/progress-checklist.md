@@ -1,7 +1,7 @@
 # Progress Checklist
 
 - [x] Setup project structure and documentation
-- [ ] Set up Pixi application
+- [x] Set up Pixi application
 - [ ] Add player movement
 - [ ] Add enemies
 - [ ] Add collision

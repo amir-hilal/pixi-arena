@@ -1,0 +1,55 @@
+import { Application } from 'pixi.js';
+
+const BACKGROUND_COLOR = 0x101114;
+const CANVAS_ACCESSIBILITY_LABEL = 'Pixi Arena game canvas';
+
+export class Renderer {
+  private application: Application | null = null;
+  private initializationPromise: Promise<void> | null = null;
+  private isInitialized = false;
+
+  public async initialize(container: HTMLElement): Promise<void> {
+    if (this.initializationPromise !== null) {
+      return this.initializationPromise;
+    }
+
+    this.initializationPromise = this.initializeApplication(container);
+    return this.initializationPromise;
+  }
+
+  public render(): void {
+    if (!this.isInitialized || this.application === null) {
+      throw new Error('Renderer must be initialized before it can render.');
+    }
+
+    this.application.render();
+  }
+
+  public destroy(): void {
+    this.application?.destroy(true);
+    this.application = null;
+    this.initializationPromise = null;
+    this.isInitialized = false;
+  }
+
+  private async initializeApplication(container: HTMLElement): Promise<void> {
+    const application = new Application();
+
+    await application.init({
+      autoStart: false,
+      background: BACKGROUND_COLOR,
+      resizeTo: container,
+    });
+
+    this.application = application;
+    this.isInitialized = true;
+    this.mountCanvas(container, application);
+  }
+
+  private mountCanvas(container: HTMLElement, application: Application): void {
+    const canvas = application.canvas;
+
+    canvas.setAttribute('aria-label', CANVAS_ACCESSIBILITY_LABEL);
+    container.appendChild(canvas);
+  }
+}
