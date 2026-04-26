@@ -77,6 +77,7 @@ export class HomeScene implements Scene {
   }
 
   private readonly handleStart = (): void => {
+    this.audioManager.unlock();
     this.audioManager.playStart();
     this.onStart();
   };

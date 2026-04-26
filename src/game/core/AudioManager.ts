@@ -18,16 +18,20 @@ type BrowserWindow = Window & {
 export class AudioManager {
   private audioContext: BrowserAudioContext | null = null;
 
+  public unlock(): void {
+    void this.resumeAudioContext();
+  }
+
   public playStart(): void {
-    this.playTone(START_FREQUENCY, START_DURATION_SECONDS, 'triangle');
+    void this.playTone(START_FREQUENCY, START_DURATION_SECONDS, 'triangle');
   }
 
   public playDamage(): void {
-    this.playTone(DAMAGE_FREQUENCY, DAMAGE_DURATION_SECONDS, 'sawtooth');
+    void this.playTone(DAMAGE_FREQUENCY, DAMAGE_DURATION_SECONDS, 'sawtooth');
   }
 
   public playGameOver(): void {
-    this.playTone(GAME_OVER_FREQUENCY, GAME_OVER_DURATION_SECONDS, 'sine');
+    void this.playTone(GAME_OVER_FREQUENCY, GAME_OVER_DURATION_SECONDS, 'sine');
   }
 
   public destroy(): void {
@@ -35,18 +39,16 @@ export class AudioManager {
     this.audioContext = null;
   }
 
-  private playTone(
+  private async playTone(
     frequency: number,
     durationSeconds: number,
     oscillatorType: OscillatorType,
-  ): void {
-    const audioContext = this.getAudioContext();
+  ): Promise<void> {
+    const audioContext = await this.resumeAudioContext();
 
     if (audioContext === null) {
       return;
     }
-
-    void audioContext.resume();
 
     const oscillator = audioContext.createOscillator();
     const gain = audioContext.createGain();
@@ -62,6 +64,20 @@ export class AudioManager {
     gain.connect(audioContext.destination);
     oscillator.start(startTime);
     oscillator.stop(endTime);
+  }
+
+  private async resumeAudioContext(): Promise<BrowserAudioContext | null> {
+    const audioContext = this.getAudioContext();
+
+    if (audioContext === null) {
+      return null;
+    }
+
+    if (audioContext.state === 'suspended') {
+      await audioContext.resume();
+    }
+
+    return audioContext;
   }
 
   private getAudioContext(): BrowserAudioContext | null {

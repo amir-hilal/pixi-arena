@@ -227,11 +227,14 @@ export class PlayingScene implements Scene {
 
     this.damagePlayer(removedEnemies.length);
     this.removeEnemies(removedEnemies);
-    this.startDamageFeedback();
 
     if (this.lives <= 0) {
       this.onGameOver(this.getDisplayScore());
+      this.startVisualDamageFeedback();
+      return;
     }
+
+    this.startDamageFeedback();
   }
 
   private damagePlayer(damage: number): void {
@@ -241,6 +244,10 @@ export class PlayingScene implements Scene {
 
   private startDamageFeedback(): void {
     this.audioManager.playDamage();
+    this.startVisualDamageFeedback();
+  }
+
+  private startVisualDamageFeedback(): void {
     this.damageFlashSeconds = DAMAGE_FLASH_DURATION_SECONDS;
     this.damageShakeSeconds = DAMAGE_SHAKE_DURATION_SECONDS;
   }

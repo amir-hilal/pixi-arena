@@ -101,6 +101,7 @@ export class GameOverScene implements Scene {
   }
 
   private readonly handleRestart = (): void => {
+    this.audioManager.unlock();
     this.audioManager.playStart();
     this.onRestart();
   };
