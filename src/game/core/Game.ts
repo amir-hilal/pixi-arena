@@ -1,5 +1,10 @@
+import { SocketClient } from '../../api/SocketClient';
 import { GameOverScene } from '../scenes/GameOverScene';
 import { HomeScene } from '../scenes/HomeScene';
+import {
+  MultiplayerMenuScene,
+  type MultiplayerSocketClient,
+} from '../scenes/MultiplayerMenuScene';
 import { PlayingScene } from '../scenes/PlayingScene';
 import { SceneManager } from '../scenes/SceneManager';
 import { AudioManager } from './AudioManager';
@@ -9,6 +14,7 @@ import { Renderer } from './Renderer';
 export class Game {
   private readonly audioManager = new AudioManager();
   private readonly renderer = new Renderer();
+  private readonly socketClient: MultiplayerSocketClient = new SocketClient();
   private readonly loop = new Loop((deltaSeconds) => {
     this.update(deltaSeconds);
     this.render();
@@ -42,6 +48,7 @@ export class Game {
     this.stop();
     this.sceneManager?.destroy();
     this.sceneManager = null;
+    this.socketClient.disconnect();
     this.audioManager.destroy();
     this.renderer.destroy();
     this.initializationPromise = null;
@@ -55,7 +62,12 @@ export class Game {
       this.sceneManager?.resize(width, height);
     });
     this.sceneManager.setScene(
-      new HomeScene(this.renderer, this.audioManager, this.startPlayingScene),
+      new HomeScene(
+        this.renderer,
+        this.audioManager,
+        this.startPlayingScene,
+        this.showMultiplayerMenuScene,
+      ),
     );
     this.isInitialized = true;
   }
@@ -80,7 +92,23 @@ export class Game {
 
   private readonly showHomeScene = (): void => {
     this.sceneManager?.setScene(
-      new HomeScene(this.renderer, this.audioManager, this.startPlayingScene),
+      new HomeScene(
+        this.renderer,
+        this.audioManager,
+        this.startPlayingScene,
+        this.showMultiplayerMenuScene,
+      ),
+    );
+  };
+
+  private readonly showMultiplayerMenuScene = (): void => {
+    this.sceneManager?.setScene(
+      new MultiplayerMenuScene(
+        this.renderer,
+        this.audioManager,
+        this.socketClient,
+        this.showHomeScene,
+      ),
     );
   };
 

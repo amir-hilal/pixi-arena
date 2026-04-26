@@ -2,16 +2,22 @@ import { io, type Socket } from 'socket.io-client';
 
 type EventHandler<TPayload> = (payload: TPayload) => void;
 type UntypedSocket = Socket<any, any>;
+type Subscription = {
+  event: string;
+  handler: (...args: any[]) => void;
+};
 
 export class SocketClient<
   TIncomingEvents extends object = Record<string, unknown>,
   TOutgoingEvents extends object = TIncomingEvents,
 > {
   private socket: UntypedSocket | null = null;
+  private readonly subscriptions: Subscription[] = [];
 
   public connect(url: string): void {
     this.disconnect();
     this.socket = io(url) as UntypedSocket;
+    this.bindSubscriptions();
   }
 
   public disconnect(): void {
@@ -30,24 +36,35 @@ export class SocketClient<
     event: TEvent,
     handler: EventHandler<TIncomingEvents[TEvent]>,
   ): void {
-    const onEvent = this.getSocket().on as (
-      event: string,
-      listener: (...args: any[]) => void,
-    ) => UntypedSocket;
+    const subscription = {
+      event,
+      handler: handler as (...args: any[]) => void,
+    };
 
-    onEvent(event, handler as (...args: any[]) => void);
+    this.subscriptions.push(subscription);
+
+    if (this.socket !== null) {
+      this.bindSubscription(subscription);
+    }
   }
 
   public off<TEvent extends Extract<keyof TIncomingEvents, string>>(
     event: TEvent,
     handler: EventHandler<TIncomingEvents[TEvent]>,
   ): void {
-    const offEvent = this.getSocket().off as (
-      event: string,
-      listener: (...args: any[]) => void,
-    ) => UntypedSocket;
+    const listener = handler as (...args: any[]) => void;
 
-    offEvent(event, handler as (...args: any[]) => void);
+    for (let index = this.subscriptions.length - 1; index >= 0; index -= 1) {
+      const subscription = this.subscriptions[index];
+
+      if (subscription.event === event && subscription.handler === listener) {
+        this.subscriptions.splice(index, 1);
+      }
+    }
+
+    if (this.socket !== null) {
+      this.unbindSubscription({ event, handler: listener });
+    }
   }
 
   public isConnected(): boolean {
@@ -60,5 +77,29 @@ export class SocketClient<
     }
 
     return this.socket;
+  }
+
+  private bindSubscriptions(): void {
+    for (const subscription of this.subscriptions) {
+      this.bindSubscription(subscription);
+    }
+  }
+
+  private bindSubscription(subscription: Subscription): void {
+    const onEvent = this.getSocket().on as (
+      event: string,
+      listener: (...args: any[]) => void,
+    ) => UntypedSocket;
+
+    onEvent(subscription.event, subscription.handler);
+  }
+
+  private unbindSubscription(subscription: Subscription): void {
+    const offEvent = this.getSocket().off as (
+      event: string,
+      listener: (...args: any[]) => void,
+    ) => UntypedSocket;
+
+    offEvent(subscription.event, subscription.handler);
   }
 }

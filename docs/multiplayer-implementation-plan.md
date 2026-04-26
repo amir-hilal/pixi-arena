@@ -538,14 +538,14 @@ interface LobbyState {
 ### Phase E — HomeScene Split + MultiplayerMenuScene
 *First visible multiplayer UI.*
 
-1. Update `HomeScene` to show "Single Player" and "Multiplayer" buttons.
-2. Create `MultiplayerMenuScene`:
-   - Display name text input (stored in `localStorage`).
-   - Create Lobby button → emits `lobby:create`; on `lobby:state` response → navigate to `LobbyScene`.
-   - Join Lobby input + button → emits `lobby:join`; on `lobby:state` → navigate to `LobbyScene`.
-   - Inline error display for `lobby:error`.
-   - Back button → navigate to `HomeScene`.
-3. Scene subscribes to `lobby:state` and `lobby:error` in `initialize()`; unsubscribes in `destroy()`.
+1. ✅ Update `HomeScene` to show "Single Player" and "Multiplayer" buttons.
+2. ✅ Create `MultiplayerMenuScene`:
+   - ✅ Display name prompt flow (stored in `localStorage`).
+   - ✅ Create Lobby button → emits `lobby:create` when socket is connected; on `lobby:state` response → shows a LobbyScene placeholder.
+   - ✅ Join Lobby prompt + button → emits `lobby:join` when socket is connected; on `lobby:state` → shows a LobbyScene placeholder.
+   - ✅ Inline error display for `lobby:error`.
+   - ✅ Back button → navigate to `HomeScene`.
+3. ✅ Scene subscribes to `lobby:state` and `lobby:error` in `initialize()`; unsubscribes in `destroy()`.
 
 ### Phase F — LobbyScene
 
