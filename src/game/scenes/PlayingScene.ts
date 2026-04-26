@@ -5,6 +5,7 @@ import { CollisionSystem } from '../systems/CollisionSystem';
 import { EnemySystem } from '../systems/EnemySystem';
 import { MovementSystem } from '../systems/MovementSystem';
 import { InputManager } from '../core/InputManager';
+import type { AudioManager } from '../core/AudioManager';
 import type { Renderer } from '../core/Renderer';
 import type { Scene } from './Scene';
 
@@ -28,6 +29,12 @@ const TIMER_TEXT_SIZE = 20;
 const SECONDS_PER_MINUTE = 60;
 const TIMER_PART_PADDING_LENGTH = 2;
 const TIMER_PART_PADDING_VALUE = '0';
+const DAMAGE_FLASH_DURATION_SECONDS = 0.45;
+const DAMAGE_SHAKE_DURATION_SECONDS = 0.28;
+const DAMAGED_PLAYER_ALPHA = 0.35;
+const DEFAULT_PLAYER_ALPHA = 1;
+const DAMAGE_SHAKE_INTENSITY = 8;
+const DAMAGE_SHAKE_FREQUENCY = 70;
 
 export class PlayingScene implements Scene {
   private readonly collisionSystem = new CollisionSystem();
@@ -43,10 +50,13 @@ export class PlayingScene implements Scene {
   private survivalTimeSeconds = INITIAL_SURVIVAL_TIME_SECONDS;
   private displayedSurvivalSeconds = INITIAL_SURVIVAL_TIME_SECONDS;
   private timerText: Text | null = null;
+  private damageFlashSeconds = 0;
+  private damageShakeSeconds = 0;
   private isInitialized = false;
 
   public constructor(
     private readonly renderer: Renderer,
+    private readonly audioManager: AudioManager,
     private readonly onGameOver: (finalScore: number) => void,
   ) {}
 
@@ -78,6 +88,7 @@ export class PlayingScene implements Scene {
     }
 
     this.updateSurvivalScore(deltaSeconds);
+    this.updateDamageFeedback(deltaSeconds);
     this.movementSystem.update({
       bounds: this.renderer.getViewportSize(),
       deltaSeconds,
@@ -117,6 +128,7 @@ export class PlayingScene implements Scene {
     }
 
     this.lives = INITIAL_LIVES;
+    this.resetDamageFeedback();
     this.score = INITIAL_SCORE;
     this.displayedScore = INITIAL_SCORE;
     this.survivalTimeSeconds = INITIAL_SURVIVAL_TIME_SECONDS;
@@ -215,6 +227,7 @@ export class PlayingScene implements Scene {
 
     this.damagePlayer(removedEnemies.length);
     this.removeEnemies(removedEnemies);
+    this.startDamageFeedback();
 
     if (this.lives <= 0) {
       this.onGameOver(this.getDisplayScore());
@@ -224,6 +237,56 @@ export class PlayingScene implements Scene {
   private damagePlayer(damage: number): void {
     this.lives = Math.max(0, this.lives - damage);
     this.updateLivesText();
+  }
+
+  private startDamageFeedback(): void {
+    this.audioManager.playDamage();
+    this.damageFlashSeconds = DAMAGE_FLASH_DURATION_SECONDS;
+    this.damageShakeSeconds = DAMAGE_SHAKE_DURATION_SECONDS;
+  }
+
+  private updateDamageFeedback(deltaSeconds: number): void {
+    this.updatePlayerFlash(deltaSeconds);
+    this.updateStageShake(deltaSeconds);
+  }
+
+  private updatePlayerFlash(deltaSeconds: number): void {
+    if (this.player === null || this.damageFlashSeconds <= 0) {
+      return;
+    }
+
+    this.damageFlashSeconds = Math.max(0, this.damageFlashSeconds - deltaSeconds);
+    this.player.renderable.alpha =
+      this.damageFlashSeconds > 0 ? DAMAGED_PLAYER_ALPHA : DEFAULT_PLAYER_ALPHA;
+  }
+
+  private updateStageShake(deltaSeconds: number): void {
+    if (this.damageShakeSeconds <= 0) {
+      return;
+    }
+
+    this.damageShakeSeconds = Math.max(0, this.damageShakeSeconds - deltaSeconds);
+
+    if (this.damageShakeSeconds === 0) {
+      this.renderer.setStageOffset(0, 0);
+      return;
+    }
+
+    const shakeProgress = this.damageShakeSeconds * DAMAGE_SHAKE_FREQUENCY;
+    const offsetX = Math.sin(shakeProgress) * DAMAGE_SHAKE_INTENSITY;
+    const offsetY = Math.cos(shakeProgress) * DAMAGE_SHAKE_INTENSITY;
+
+    this.renderer.setStageOffset(offsetX, offsetY);
+  }
+
+  private resetDamageFeedback(): void {
+    this.damageFlashSeconds = 0;
+    this.damageShakeSeconds = 0;
+    this.renderer.setStageOffset(0, 0);
+
+    if (this.player !== null) {
+      this.player.renderable.alpha = DEFAULT_PLAYER_ALPHA;
+    }
   }
 
   private updateSurvivalScore(deltaSeconds: number): void {

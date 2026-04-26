@@ -15,7 +15,7 @@
 - [x] Update rules: avoid enemies instead of scoring by collision
 - [x] Add survival-based scoring
 - [x] Add difficulty scaling over time
-- [ ] Add basic sound/visual feedback
+- [x] Add basic sound/visual feedback
 - [ ] Add responsive UI polish
 
 ## Product Features

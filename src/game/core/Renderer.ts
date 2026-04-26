@@ -52,6 +52,12 @@ export class Renderer {
     };
   }
 
+  public setStageOffset(x: number, y: number): void {
+    const application = this.getInitializedApplication();
+
+    application.stage.position.set(x, y);
+  }
+
   public destroy(): void {
     this.application?.destroy(true);
     this.application = null;

@@ -2,10 +2,12 @@ import { GameOverScene } from '../scenes/GameOverScene';
 import { HomeScene } from '../scenes/HomeScene';
 import { PlayingScene } from '../scenes/PlayingScene';
 import { SceneManager } from '../scenes/SceneManager';
+import { AudioManager } from './AudioManager';
 import { Loop } from './Loop';
 import { Renderer } from './Renderer';
 
 export class Game {
+  private readonly audioManager = new AudioManager();
   private readonly renderer = new Renderer();
   private readonly loop = new Loop((deltaSeconds) => {
     this.update(deltaSeconds);
@@ -40,6 +42,7 @@ export class Game {
     this.stop();
     this.sceneManager?.destroy();
     this.sceneManager = null;
+    this.audioManager.destroy();
     this.renderer.destroy();
     this.initializationPromise = null;
     this.isInitialized = false;
@@ -49,7 +52,7 @@ export class Game {
     await this.renderer.initialize(container);
     this.sceneManager = new SceneManager();
     this.sceneManager.setScene(
-      new HomeScene(this.renderer, this.startPlayingScene),
+      new HomeScene(this.renderer, this.audioManager, this.startPlayingScene),
     );
     this.isInitialized = true;
   }
@@ -64,13 +67,22 @@ export class Game {
 
   private readonly startPlayingScene = (): void => {
     this.sceneManager?.setScene(
-      new PlayingScene(this.renderer, this.showGameOverScene),
+      new PlayingScene(
+        this.renderer,
+        this.audioManager,
+        this.showGameOverScene,
+      ),
     );
   };
 
   private readonly showGameOverScene = (finalScore: number): void => {
     this.sceneManager?.setScene(
-      new GameOverScene(this.renderer, finalScore, this.startPlayingScene),
+      new GameOverScene(
+        this.renderer,
+        this.audioManager,
+        finalScore,
+        this.startPlayingScene,
+      ),
     );
   };
 }

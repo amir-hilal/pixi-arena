@@ -1,4 +1,5 @@
 import { Text } from 'pixi.js';
+import type { AudioManager } from '../core/AudioManager';
 import type { Renderer } from '../core/Renderer';
 import type { Scene } from './Scene';
 
@@ -20,11 +21,13 @@ export class GameOverScene implements Scene {
 
   public constructor(
     private readonly renderer: Renderer,
+    private readonly audioManager: AudioManager,
     private readonly finalScore: number,
     private readonly onRestart: () => void,
   ) {}
 
   public initialize(): void {
+    this.audioManager.playGameOver();
     this.gameOverText = this.createCenteredText(
       GAME_OVER_TEXT,
       GAME_OVER_TEXT_SIZE,
@@ -42,7 +45,7 @@ export class GameOverScene implements Scene {
     );
     this.restartText.eventMode = 'static';
     this.restartText.cursor = 'pointer';
-    this.restartText.on('pointertap', this.onRestart);
+    this.restartText.on('pointertap', this.handleRestart);
 
     this.renderer.addToStage(this.gameOverText);
     this.renderer.addToStage(this.scoreText);
@@ -53,7 +56,7 @@ export class GameOverScene implements Scene {
 
   public destroy(): void {
     if (this.restartText !== null) {
-      this.restartText.off('pointertap', this.onRestart);
+      this.restartText.off('pointertap', this.handleRestart);
       this.renderer.removeFromStage(this.restartText);
       this.restartText.destroy();
       this.restartText = null;
@@ -96,4 +99,9 @@ export class GameOverScene implements Scene {
     this.renderer.removeFromStage(text);
     text.destroy();
   }
+
+  private readonly handleRestart = (): void => {
+    this.audioManager.playStart();
+    this.onRestart();
+  };
 }

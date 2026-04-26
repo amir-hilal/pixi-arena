@@ -1,4 +1,5 @@
 import { Text } from 'pixi.js';
+import type { AudioManager } from '../core/AudioManager';
 import type { Renderer } from '../core/Renderer';
 import type { Scene } from './Scene';
 
@@ -16,6 +17,7 @@ export class HomeScene implements Scene {
 
   public constructor(
     private readonly renderer: Renderer,
+    private readonly audioManager: AudioManager,
     private readonly onStart: () => void,
   ) {}
 
@@ -28,7 +30,7 @@ export class HomeScene implements Scene {
     );
     this.startText.eventMode = 'static';
     this.startText.cursor = 'pointer';
-    this.startText.on('pointertap', this.onStart);
+    this.startText.on('pointertap', this.handleStart);
 
     this.renderer.addToStage(this.titleText);
     this.renderer.addToStage(this.startText);
@@ -38,7 +40,7 @@ export class HomeScene implements Scene {
 
   public destroy(): void {
     if (this.startText !== null) {
-      this.startText.off('pointertap', this.onStart);
+      this.startText.off('pointertap', this.handleStart);
       this.renderer.removeFromStage(this.startText);
       this.startText.destroy();
       this.startText = null;
@@ -73,4 +75,9 @@ export class HomeScene implements Scene {
 
     return displayText;
   }
+
+  private readonly handleStart = (): void => {
+    this.audioManager.playStart();
+    this.onStart();
+  };
 }
