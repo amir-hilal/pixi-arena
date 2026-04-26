@@ -1,13 +1,13 @@
 import { Enemy } from '../entities/Enemy';
 import type { Position } from '../entities/Player';
 
-interface ViewportBounds {
+interface Bounds {
   width: number;
   height: number;
 }
 
 interface EnemyUpdate {
-  bounds: ViewportBounds;
+  bounds: Bounds;
   deltaSeconds: number;
   playerPosition: Position;
   survivalTimeSeconds: number;
@@ -81,7 +81,7 @@ export class EnemySystem {
 
   private spawnEnemies(
     deltaSeconds: number,
-    bounds: ViewportBounds,
+    bounds: Bounds,
     survivalTimeSeconds: number,
   ): Enemy[] {
     this.elapsedSpawnSeconds += deltaSeconds;
@@ -110,7 +110,7 @@ export class EnemySystem {
     );
   }
 
-  private getSpawnPosition(bounds: ViewportBounds): Position {
+  private getSpawnPosition(bounds: Bounds): Position {
     const sideIndex = Math.floor(Math.random() * SPAWN_SIDE_COUNT);
     const x = this.getRandomValue(bounds.width);
     const y = this.getRandomValue(bounds.height);
@@ -155,7 +155,7 @@ export class EnemySystem {
     }
   }
 
-  private removeInvalidEnemies(bounds: ViewportBounds): Enemy[] {
+  private removeInvalidEnemies(bounds: Bounds): Enemy[] {
     const removedEnemies: Enemy[] = [];
 
     for (let index = this.enemies.length - 1; index >= 0; index -= 1) {
@@ -174,7 +174,7 @@ export class EnemySystem {
 
   private isEnemyWithinValidBounds(
     enemy: Enemy,
-    bounds: ViewportBounds,
+    bounds: Bounds,
   ): boolean {
     const minimumX = -enemy.radius - ENEMY_SPAWN_OFFSET;
     const maximumX = bounds.width + enemy.radius + ENEMY_SPAWN_OFFSET;

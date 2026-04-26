@@ -1,13 +1,13 @@
 import type { InputDirection } from '../core/InputManager';
 import type { Player } from '../entities/Player';
 
-interface ViewportBounds {
+interface Bounds {
   width: number;
   height: number;
 }
 
 interface MovementUpdate {
-  bounds: ViewportBounds;
+  bounds: Bounds;
   deltaSeconds: number;
   movementDirection: InputDirection;
   player: Player;
@@ -48,7 +48,7 @@ export class MovementSystem {
     player.position.y += normalizedY * distance;
   }
 
-  private keepPlayerInBounds(player: Player, bounds: ViewportBounds): void {
+  private keepPlayerInBounds(player: Player, bounds: Bounds): void {
     const maximumX = Math.max(player.radius, bounds.width - player.radius);
     const maximumY = Math.max(player.radius, bounds.height - player.radius);
 

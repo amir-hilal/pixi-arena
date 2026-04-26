@@ -10,6 +10,7 @@ import type { AudioManager } from '../core/AudioManager';
 import type { Renderer } from '../core/Renderer';
 import { VirtualJoystick } from '../ui/VirtualJoystick';
 import type { Scene } from './Scene';
+import { getWorldBounds } from '../utils/world';
 
 const INITIAL_PLAYER_POSITION_RATIO = 0.5;
 const INITIAL_SCORE = 0;
@@ -95,7 +96,7 @@ export class PlayingScene implements Scene {
     this.updateSurvivalScore(deltaSeconds);
     this.updateDamageFeedback(deltaSeconds);
     this.movementSystem.update({
-      bounds: this.renderer.getViewportSize(),
+      bounds: getWorldBounds(),
       deltaSeconds,
       movementDirection: this.getMovementDirection(),
       player: this.player,
@@ -227,7 +228,7 @@ export class PlayingScene implements Scene {
 
   private updateEnemies(deltaSeconds: number, player: Player): void {
     const result = this.enemySystem.update({
-      bounds: this.renderer.getViewportSize(),
+      bounds: getWorldBounds(),
       deltaSeconds,
       playerPosition: player.position,
       survivalTimeSeconds: this.survivalTimeSeconds,
