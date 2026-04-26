@@ -44,6 +44,12 @@ const DAMAGE_SHAKE_INTENSITY = 8;
 const DAMAGE_SHAKE_FREQUENCY = 70;
 const NEUTRAL_DIRECTION = 0;
 
+// Shared structural type used by both Player and Enemy for obstacle collision.
+interface CircleCollider {
+  position: Position;
+  radius: number;
+}
+
 export class PlayingScene implements Scene {
   private readonly camera = new Camera();
   private readonly collisionSystem = new CollisionSystem();
@@ -124,6 +130,7 @@ export class PlayingScene implements Scene {
     this.updateDamageFeedback(deltaSeconds);
     this.syncWorldContainerPosition();
     this.updateEnemies(deltaSeconds, this.player);
+    this.resolveEnemyObstacleCollisions();
     this.resolvePlayerEnemyCollisions(this.player);
   }
 
@@ -301,30 +308,43 @@ export class PlayingScene implements Scene {
     player.renderable.position.set(player.position.x, player.position.y);
   }
 
-  private resolveCircleRectCollision(player: Player, rect: ObstacleRect): void {
-    const nearestX = Math.max(rect.x, Math.min(player.position.x, rect.x + rect.width));
-    const nearestY = Math.max(rect.y, Math.min(player.position.y, rect.y + rect.height));
-    const dx = player.position.x - nearestX;
-    const dy = player.position.y - nearestY;
+  private resolveEnemyObstacleCollisions(): void {
+    const obstacles = this.obstacleSystem.getObstacles();
+
+    for (const enemy of this.enemySystem.getEnemies()) {
+      for (const obstacle of obstacles) {
+        this.resolveCircleRectCollision(enemy, obstacle.rect);
+      }
+
+      // Re-sync renderable once after all obstacle corrections for this enemy.
+      enemy.renderable.position.set(enemy.position.x, enemy.position.y);
+    }
+  }
+
+  private resolveCircleRectCollision(circle: CircleCollider, rect: ObstacleRect): void {
+    const nearestX = Math.max(rect.x, Math.min(circle.position.x, rect.x + rect.width));
+    const nearestY = Math.max(rect.y, Math.min(circle.position.y, rect.y + rect.height));
+    const dx = circle.position.x - nearestX;
+    const dy = circle.position.y - nearestY;
     const distSq = dx * dx + dy * dy;
 
-    if (distSq >= player.radius * player.radius) {
+    if (distSq >= circle.radius * circle.radius) {
       return;
     }
 
     const dist = Math.sqrt(distSq);
 
     if (dist === 0) {
-      // Degenerate: player center landed exactly on the rect edge; push upward.
-      player.position.y = rect.y - player.radius;
+      // Degenerate: center is exactly on the rect boundary; push upward.
+      circle.position.y = rect.y - circle.radius;
 
       return;
     }
 
-    const overlap = player.radius - dist;
+    const overlap = circle.radius - dist;
 
-    player.position.x += (dx / dist) * overlap;
-    player.position.y += (dy / dist) * overlap;
+    circle.position.x += (dx / dist) * overlap;
+    circle.position.y += (dy / dist) * overlap;
   }
 
   private resolvePlayerEnemyCollisions(player: Player): void {
