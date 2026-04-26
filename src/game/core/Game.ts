@@ -78,6 +78,12 @@ export class Game {
     );
   };
 
+  private readonly showHomeScene = (): void => {
+    this.sceneManager?.setScene(
+      new HomeScene(this.renderer, this.audioManager, this.startPlayingScene),
+    );
+  };
+
   private readonly showGameOverScene = (finalScore: number): void => {
     this.sceneManager?.setScene(
       new GameOverScene(
@@ -85,6 +91,7 @@ export class Game {
         this.audioManager,
         finalScore,
         this.startPlayingScene,
+        this.showHomeScene,
       ),
     );
   };

@@ -20,8 +20,8 @@
 ## Single Player Polish
 
 - [x] Clean mobile long-press behavior
-- [ ] Finalize responsive controls
-- [ ] Stabilize scene flow
+- [x] Finalize responsive controls
+- [x] Stabilize scene flow
 
 ## World Expansion
 

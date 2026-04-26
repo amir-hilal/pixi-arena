@@ -5,18 +5,22 @@ import type { Scene } from './Scene';
 
 const GAME_OVER_TEXT = 'Game Over';
 const RESTART_TEXT = 'Click to restart';
+const HOME_TEXT = 'Return to home';
 const SCORE_TEXT_PREFIX = 'Final Score';
 const GAME_OVER_TEXT_SIZE = 38;
 const SCORE_TEXT_SIZE = 22;
 const RESTART_TEXT_SIZE = 20;
+const HOME_TEXT_SIZE = 20;
 const CENTER_Y_RATIO = 0.38;
 const SCORE_TEXT_Y_OFFSET = 54;
 const RESTART_TEXT_Y_OFFSET = 94;
+const HOME_TEXT_Y_OFFSET = 130;
 const TEXT_COLOR = 0xffffff;
 
 export class GameOverScene implements Scene {
   private gameOverText: Text | null = null;
   private restartText: Text | null = null;
+  private homeText: Text | null = null;
   private scoreText: Text | null = null;
 
   public constructor(
@@ -24,6 +28,7 @@ export class GameOverScene implements Scene {
     private readonly audioManager: AudioManager,
     private readonly finalScore: number,
     private readonly onRestart: () => void,
+    private readonly onHome: () => void,
   ) {}
 
   public initialize(): void {
@@ -46,10 +51,19 @@ export class GameOverScene implements Scene {
     this.restartText.eventMode = 'static';
     this.restartText.cursor = 'pointer';
     this.restartText.on('pointertap', this.handleRestart);
+    this.homeText = this.createCenteredText(
+      HOME_TEXT,
+      HOME_TEXT_SIZE,
+      HOME_TEXT_Y_OFFSET,
+    );
+    this.homeText.eventMode = 'static';
+    this.homeText.cursor = 'pointer';
+    this.homeText.on('pointertap', this.handleHome);
 
     this.renderer.addToStage(this.gameOverText);
     this.renderer.addToStage(this.scoreText);
     this.renderer.addToStage(this.restartText);
+    this.renderer.addToStage(this.homeText);
   }
 
   public update(_deltaSeconds: number): void {}
@@ -60,6 +74,7 @@ export class GameOverScene implements Scene {
     this.gameOverText?.position.set(width / 2, centerY);
     this.scoreText?.position.set(width / 2, centerY + SCORE_TEXT_Y_OFFSET);
     this.restartText?.position.set(width / 2, centerY + RESTART_TEXT_Y_OFFSET);
+    this.homeText?.position.set(width / 2, centerY + HOME_TEXT_Y_OFFSET);
   }
 
   public destroy(): void {
@@ -68,6 +83,13 @@ export class GameOverScene implements Scene {
       this.renderer.removeFromStage(this.restartText);
       this.restartText.destroy();
       this.restartText = null;
+    }
+
+    if (this.homeText !== null) {
+      this.homeText.off('pointertap', this.handleHome);
+      this.renderer.removeFromStage(this.homeText);
+      this.homeText.destroy();
+      this.homeText = null;
     }
 
     this.destroyText(this.scoreText);
@@ -112,5 +134,10 @@ export class GameOverScene implements Scene {
     this.audioManager.unlock();
     this.audioManager.playStart();
     this.onRestart();
+  };
+
+  private readonly handleHome = (): void => {
+    this.audioManager.unlock();
+    this.onHome();
   };
 }
