@@ -42,7 +42,7 @@
 
 ## Multiplayer
 
-- [ ] Design shared simulation types
+- [x] Design shared simulation types and constants (Phase A complete — src/shared/constants + src/shared/types)
 - [ ] Create realtime server
 - [ ] Add Socket.IO
 - [ ] Add lobby create/join/leave

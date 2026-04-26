@@ -2,6 +2,16 @@ import { Enemy } from '../entities/Enemy';
 import type { Position } from '../entities/Player';
 import type { Gate } from '../utils/world';
 import type { ObstacleRect } from '../entities/Obstacle';
+import {
+  SPAWN_INTERVAL_SECONDS,
+  SPAWN_INTERVAL_SCALE_FACTOR,
+  MINIMUM_SPAWN_INTERVAL_SECONDS,
+  SPAWN_RADIUS_MIN,
+  SPAWN_RADIUS_MAX,
+  GATE_FALLBACK_MIN_DIST,
+  MAX_SPAWN_RETRIES,
+  SPAWN_SAFE_RADIUS,
+} from '../../shared/constants/simulation';
 
 interface Bounds {
   width: number;
@@ -30,19 +40,7 @@ interface ViewportRect {
   worldBottom: number;
 }
 
-const SPAWN_INTERVAL_SECONDS = 1.5;
-const SPAWN_INTERVAL_SCALE_FACTOR = 0.02;
-const MINIMUM_SPAWN_INTERVAL_SECONDS = 0.45;
-const SPAWN_RADIUS_MIN = 400;
-const SPAWN_RADIUS_MAX = 650;
 const TWO_PI = Math.PI * 2;
-// If the world-clamped spawn lands closer to the player than this, fall back
-// to the nearest gate instead.
-const GATE_FALLBACK_MIN_DIST = SPAWN_RADIUS_MIN * 0.6;
-// Max attempts to find a valid near-player spawn before using a gate.
-const MAX_SPAWN_RETRIES = 5;
-// Minimum clearance from any obstacle rect edge for a spawn point.
-const SPAWN_SAFE_RADIUS = 16;
 
 export class EnemySystem {
   private readonly enemies: Enemy[] = [];

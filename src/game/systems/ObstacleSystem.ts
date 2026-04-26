@@ -1,5 +1,6 @@
 import { Obstacle, type ObstacleType } from '../entities/Obstacle';
 import { WORLD_WIDTH, WORLD_HEIGHT } from '../utils/world';
+import { PLAYER_SAFE_RADIUS } from '../../shared/constants/simulation';
 
 // NOTE: Enemies resolve obstacle collisions by pushback and do not path-find
 // around obstacles. They may temporarily press against an obstacle edge while
@@ -7,8 +8,6 @@ import { WORLD_WIDTH, WORLD_HEIGHT } from '../utils/world';
 
 const PLAYER_START_X = WORLD_WIDTH / 2;
 const PLAYER_START_Y = WORLD_HEIGHT / 2;
-// Obstacles whose center falls within this radius of the player start are skipped.
-const PLAYER_SAFE_RADIUS = 380;
 
 interface ObstacleDef {
   x: number;

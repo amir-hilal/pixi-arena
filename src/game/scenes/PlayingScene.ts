@@ -16,12 +16,12 @@ import { GroundBackground } from '../ui/GroundBackground';
 import { WorldBoundary } from '../ui/WorldBoundary';
 import { ObstacleSystem } from '../systems/ObstacleSystem';
 import type { ObstacleRect } from '../entities/Obstacle';
+import { INITIAL_LIVES } from '../../shared/constants/player';
+import { POINTS_PER_SECOND } from '../../shared/constants/simulation';
 
 const INITIAL_PLAYER_POSITION_RATIO = 0.5;
 const INITIAL_SCORE = 0;
 const INITIAL_SURVIVAL_TIME_SECONDS = 0;
-const INITIAL_LIVES = 3;
-const POINTS_PER_SECOND = 10;
 const SCORE_TEXT_X = 16;
 const SCORE_TEXT_Y = 12;
 const SCORE_TEXT_COLOR = 0xffffff;

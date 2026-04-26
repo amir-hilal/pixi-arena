@@ -1,14 +1,13 @@
 import { Graphics } from 'pixi.js';
 import type { Position } from './Player';
+import { ENEMY_RADIUS, ENEMY_SPEED } from '../../shared/constants/enemy';
 
 const ENEMY_COLOR = 0xf56565;
-const DEFAULT_ENEMY_RADIUS = 14;
-const DEFAULT_ENEMY_SPEED = 125;
 
 export class Enemy {
   public readonly renderable: Graphics;
-  public readonly radius = DEFAULT_ENEMY_RADIUS;
-  public readonly speed = DEFAULT_ENEMY_SPEED;
+  public readonly radius = ENEMY_RADIUS;
+  public readonly speed = ENEMY_SPEED;
 
   public constructor(public readonly position: Position) {
     this.renderable = new Graphics()
