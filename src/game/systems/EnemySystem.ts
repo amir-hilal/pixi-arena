@@ -55,6 +55,23 @@ export class EnemySystem {
     return removedEnemies;
   }
 
+  public removeEnemies(enemiesToRemove: readonly Enemy[]): Enemy[] {
+    const removedEnemies: Enemy[] = [];
+
+    for (const enemy of enemiesToRemove) {
+      const index = this.enemies.indexOf(enemy);
+
+      if (index === -1) {
+        continue;
+      }
+
+      removedEnemies.push(enemy);
+      this.enemies.splice(index, 1);
+    }
+
+    return removedEnemies;
+  }
+
   private spawnEnemies(
     deltaSeconds: number,
     bounds: ViewportBounds,
