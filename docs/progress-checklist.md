@@ -43,6 +43,8 @@
 ## Multiplayer
 
 - [x] Design shared simulation types and constants (Phase A complete — src/shared/constants + src/shared/types)
+- [x] Phase B.1 complete — `src/shared/simulation/movement.ts`; `applyPlayerInput` + `clampPlayerToBounds` use `PlayerState`/`InputState`/`WorldState`; `MovementSystem` is a thin adapter
+- [x] Phase B.2 complete — `src/shared/simulation/collision.ts`; `circlesOverlap` + `circleRectPushback`; `CollisionSystem` and `PlayingScene` delegate; no behavior change
 - [ ] Create realtime server
 - [ ] Add Socket.IO
 - [ ] Add lobby create/join/leave

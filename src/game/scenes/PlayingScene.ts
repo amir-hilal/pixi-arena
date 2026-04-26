@@ -18,6 +18,7 @@ import { ObstacleSystem } from '../systems/ObstacleSystem';
 import type { ObstacleRect } from '../entities/Obstacle';
 import { INITIAL_LIVES } from '../../shared/constants/player';
 import { POINTS_PER_SECOND } from '../../shared/constants/simulation';
+import { circleRectPushback } from '../../shared/simulation/collision';
 
 const INITIAL_PLAYER_POSITION_RATIO = 0.5;
 const INITIAL_SCORE = 0;
@@ -337,29 +338,14 @@ export class PlayingScene implements Scene {
   }
 
   private resolveCircleRectCollision(circle: CircleCollider, rect: ObstacleRect): void {
-    const nearestX = Math.max(rect.x, Math.min(circle.position.x, rect.x + rect.width));
-    const nearestY = Math.max(rect.y, Math.min(circle.position.y, rect.y + rect.height));
-    const dx = circle.position.x - nearestX;
-    const dy = circle.position.y - nearestY;
-    const distSq = dx * dx + dy * dy;
+    const pushback = circleRectPushback(circle.position, circle.radius, rect);
 
-    if (distSq >= circle.radius * circle.radius) {
+    if (pushback === null) {
       return;
     }
 
-    const dist = Math.sqrt(distSq);
-
-    if (dist === 0) {
-      // Degenerate: center is exactly on the rect boundary; push upward.
-      circle.position.y = rect.y - circle.radius;
-
-      return;
-    }
-
-    const overlap = circle.radius - dist;
-
-    circle.position.x += (dx / dist) * overlap;
-    circle.position.y += (dy / dist) * overlap;
+    circle.position.x += pushback.x;
+    circle.position.y += pushback.y;
   }
 
   private resolvePlayerEnemyCollisions(player: Player): void {

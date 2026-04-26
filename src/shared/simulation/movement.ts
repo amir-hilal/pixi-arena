@@ -1,45 +1,38 @@
-import type { Vector2 } from '../types/index';
-
-interface BoundsRect {
-  width: number;
-  height: number;
-}
+import type { PlayerState, InputState, WorldState } from '../types/index';
 
 /**
- * Applies a directional input to a 2D position, advancing it by
- * `speed * deltaSeconds` along the normalized direction.
- * Mutates `position` in place. No-op if the direction vector is zero-length.
+ * Advances the player's position by `speed * deltaSeconds` along the normalized
+ * input direction. Mutates `state.position` in place. No-op for zero-length input.
  */
 export function applyPlayerInput(
-  position: Vector2,
-  direction: Vector2,
-  speed: number,
+  state: PlayerState,
+  input: InputState,
   deltaSeconds: number,
+  speed: number,
 ): void {
-  const length = Math.hypot(direction.x, direction.y);
+  const length = Math.hypot(input.dx, input.dy);
 
   if (length === 0) {
     return;
   }
 
-  position.x += (direction.x / length) * speed * deltaSeconds;
-  position.y += (direction.y / length) * speed * deltaSeconds;
+  state.position.x += (input.dx / length) * speed * deltaSeconds;
+  state.position.y += (input.dy / length) * speed * deltaSeconds;
 }
 
 /**
- * Clamps `position` to the playable area inside the boundary walls.
- * Mutates `position` in place.
+ * Clamps the player's position to the playable area inside the boundary walls.
+ * Mutates `state.position` in place.
  */
 export function clampPlayerToBounds(
-  position: Vector2,
+  state: PlayerState,
+  world: WorldState,
   radius: number,
-  bounds: BoundsRect,
-  boundaryThickness: number,
 ): void {
-  const min = boundaryThickness + radius;
-  const maxX = Math.max(min, bounds.width - boundaryThickness - radius);
-  const maxY = Math.max(min, bounds.height - boundaryThickness - radius);
+  const min = world.boundaryThickness + radius;
+  const maxX = Math.max(min, world.width - world.boundaryThickness - radius);
+  const maxY = Math.max(min, world.height - world.boundaryThickness - radius);
 
-  position.x = Math.min(Math.max(position.x, min), maxX);
-  position.y = Math.min(Math.max(position.y, min), maxY);
+  state.position.x = Math.min(Math.max(state.position.x, min), maxX);
+  state.position.y = Math.min(Math.max(state.position.y, min), maxY);
 }

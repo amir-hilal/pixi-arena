@@ -512,8 +512,8 @@ interface LobbyState {
 ### Phase B — Shared Simulation Functions
 *Extracts math from systems without changing system behavior.*
 
-1. Create `src/shared/simulation/movement.ts`. Extract `movePlayer` + `keepPlayerInBounds` math.
-2. Create `src/shared/simulation/collision.ts`. Extract `resolveCircleRectCollision` + `areCirclesColliding` math.
+1. ✅ Create `src/shared/simulation/movement.ts`. Exports `applyPlayerInput(state, input, deltaSeconds, speed)` and `clampPlayerToBounds(state, world, radius)` using `PlayerState`, `InputState`, `WorldState`. `MovementSystem` delegates via pre-Phase C adapters; `syncRenderable` remains client-only.
+2. ✅ Create `src/shared/simulation/collision.ts`. Exports `circlesOverlap(a, b)` and `circleRectPushback(circlePos, radius, rect): Vector2 | null`. `CollisionSystem` and `PlayingScene.resolveCircleRectCollision` delegate to these; pushback is applied by callers; `syncRenderable` remains client-only.
 3. Create `src/shared/simulation/enemyBehavior.ts`. Extract spawn position logic and enemy step logic.
 4. Create `src/shared/simulation/damage.ts`. Extract enemy collision collection, damage application, winner detection from `PlayingScene`.
 5. Update `MovementSystem`, `CollisionSystem`, `EnemySystem`, `PlayingScene` to delegate to shared functions. Keep all `syncRenderable` calls in client layer.
