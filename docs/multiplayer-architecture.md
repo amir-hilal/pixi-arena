@@ -70,11 +70,12 @@ Client to server:
 Server to client:
 
 - `lobby:state`
-- `game:countdown`
-- `game:snapshot`
+- `match:countdown`
+- `match:started`
+- `match:snapshot`
 - `player:damaged`
 - `player:eliminated`
-- `game:finished`
+- `match:finished`
 
 ## Tick Rate
 

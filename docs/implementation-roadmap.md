@@ -4,9 +4,9 @@
 
 This roadmap is a high-level product roadmap. For multiplayer implementation details, `docs/multiplayer-implementation-plan.md` is authoritative.
 
-Single-player stabilization, world/camera work, shared simulation extraction, entity state/view wrappers, SocketClient, and the Home/Multiplayer menu split are complete. The current next step is Phase F from the multiplayer plan: implement LobbyScene with lobby state rendering, host controls, leave flow, countdown, and match started subscription.
+Single-player stabilization, world/camera work, shared simulation extraction, entity state/view wrappers, SocketClient, the Home/Multiplayer menu split, the temporary mock Socket.IO server, and LobbyScene are complete. The current next step is Phase I from the multiplayer plan: implement the authoritative realtime server.
 
-Current risk: the frontend now emits lobby events but no realtime server exists yet, so create/join cannot complete against a real backend until Phase I or a temporary mock server exists.
+Current risk: the current server is a mock implementation and does not simulate gameplay. Multiplayer movement, enemies, damage, winner logic, and snapshots still need to be implemented server-side.
 
 ## Phase 1: Current Single-Player Stabilization
 
@@ -72,23 +72,25 @@ Risks:
 
 - Refactoring too late will make multiplayer more expensive.
 
-## Phase 4: Realtime Server Foundation
+## Phase 4: Lobby Server Foundation
 
-Goal: create the minimum realtime backend for lobby state.
+Goal: create the temporary realtime backend for lobby state and the frontend lobby UI.
 
 Checklist:
 
-- Create Node.js TypeScript server.
+- Create temporary Node.js TypeScript mock server.
 - Add Socket.IO.
-- Create lobby model.
-- Support create, join, and leave lobby.
+- Create in-memory lobby model.
+- Support create, join, leave, host reassignment, countdown, and mock match start.
 - Broadcast lobby state.
+- Render server-state-driven LobbyScene.
 
 Acceptance criteria:
 
 - Up to 4 clients can join the same lobby.
 - Lobby state is consistent after joins/leaves.
-- Clients can return to Home without stale lobby state.
+- Clients can leave and return to the multiplayer menu without stale lobby listeners.
+- Match start reaches the MultiplayerPlayingScene placeholder.
 
 Risks:
 

@@ -14,29 +14,46 @@ It supersedes scattered notes in `multiplayer-architecture.md` where the two con
 - `Game.ts` owns scene switching and high-level socket lifecycle only. It constructs the `SocketClient` but does not contain lobby or match logic.
 - Each scene subscribes and unsubscribes its own socket events.
 - `SocketClient` is a thin typed wrapper — no lobby or match logic inside it.
-- No ECS. No physics engine. No prediction or interpolation in v1.
+- No ECS. No physics engine. No client-side prediction in v1. Interpolation happens only after authoritative snapshots exist.
 - Shared simulation layer must exist before the server is written.
 
 ---
 
 ## Current Status
 
-Phases A through E are complete:
+Phases A through F are complete:
 
 - Shared constants, types, and pure simulation functions exist under `src/shared/`.
 - `Player` and `Enemy` are Pixi view wrappers over `PlayerState` and `EnemyState`.
 - `SocketClient` exists as a typed Socket.IO transport wrapper.
 - `HomeScene` offers Single Player and Multiplayer.
-- `MultiplayerMenuScene` stores display name, shows Create Lobby / Join Lobby / Back, subscribes to `lobby:state` and `lobby:error`, emits lobby events only when connected, and shows a LobbyScene placeholder.
-- No realtime server, `LobbyScene`, `MultiplayerPlayingScene`, or `MatchResultsScene` exists yet.
+- `MultiplayerMenuScene` stores display name, shows Create Lobby / Join Lobby / Back, connects through `Game.ts`, and transitions to `LobbyScene` on `lobby:state`.
+- `server/` contains a temporary mock Socket.IO server for lobby UI development only.
+- `LobbyScene` renders from server `lobby:state`, supports host start, leave, countdown, errors, and transitions to `MultiplayerPlayingScene`.
+- `MultiplayerPlayingScene` exists as a placeholder only.
+- No authoritative realtime server or multiplayer gameplay simulation exists yet.
+
+## Current Multiplayer State
+
+- Lobby flow is fully functional using a temporary mock Socket.IO server.
+- Client is fully server-state-driven via `lobby:state`.
+- Scene transitions work: MultiplayerMenu → Lobby → MultiplayerPlaying (placeholder).
+- No gameplay simulation exists yet in multiplayer.
+- Match start is mock-triggered only.
 
 ## Current Next Step
 
-Implement Phase F, LobbyScene with lobby state rendering, host controls, leave flow, countdown, and match started subscription.
+Implement Phase I — authoritative realtime server:
+- server-owned match state
+- input handling
+- simulation loop
+- snapshot broadcasting
 
 ## Current Risk
 
-The frontend now emits lobby events but no realtime server exists yet, so create/join cannot complete against a real backend until Phase I or a temporary mock server exists.
+The current server is a mock implementation and does not simulate gameplay.
+All multiplayer gameplay logic (movement, enemies, damage, winner) still needs to be implemented server-side.
+If the event contract is violated during Phase I, client scenes may require refactoring.
 
 ---
 
@@ -74,15 +91,15 @@ MatchResultsScene
 |---|---|
 | `src/api/SocketClient.ts` | Typed Socket.IO client wrapper — complete |
 | `src/game/scenes/MultiplayerMenuScene.ts` | Display name input, Create / Join UI — complete |
-| `src/game/scenes/LobbyScene.ts` | Player list, host controls, leave button |
-| `src/game/scenes/MultiplayerPlayingScene.ts` | Renders snapshots, sends input each frame |
+| `src/game/scenes/LobbyScene.ts` | Player list, host controls, leave button — complete |
+| `src/game/scenes/MultiplayerPlayingScene.ts` | Placeholder now; later renders snapshots and sends input each frame |
 | `src/game/scenes/MatchResultsScene.ts` | Ranked results, back to lobby / home |
 | `src/shared/` | Constants, types, simulation (see Part 2) — complete |
-| `server/` | Node.js + Socket.IO authoritative server |
+| `server/` | Temporary mock Socket.IO lobby server now; authoritative server comes in Phase I |
 
 **Modified existing files:**
 - `src/game/scenes/HomeScene.ts` — Single Player / Multiplayer mode buttons complete
-- `src/game/core/Game.ts` — constructs `SocketClient`, wires Home / Playing / Multiplayer menu scenes, and disconnects on destroy. Multiplayer connect/disconnect-on-entry behavior is deferred until a server URL and lobby flow exist.
+- `src/game/core/Game.ts` — constructs `SocketClient`, connects on Multiplayer entry, wires Home / Playing / Multiplayer scenes, and disconnects on destroy.
 
 ### 1.3 Scene Construction Pattern
 
@@ -92,13 +109,13 @@ All scenes follow the existing pattern established by `PlayingScene`:
 constructor(renderer, audioManager, ...callbacks)
 ```
 
-`Game.ts` constructs scenes and wires their callbacks. Each scene subscribes to socket events in `initialize()` and unsubscribes in `destroy()`. No socket logic belongs in `Game.ts` beyond constructing the shared `SocketClient` and later connecting/disconnecting at multiplayer entry/exit.
+`Game.ts` constructs scenes and wires their callbacks. Each scene subscribes to socket events in `initialize()` and unsubscribes in `destroy()`. No socket logic belongs in `Game.ts` beyond constructing the shared `SocketClient` and connecting/disconnecting at multiplayer entry/exit.
 
 ```
 // Game.ts (sketch — not implementation)
-private readonly showLobbyScene = (lobbyCode: string): void => {
+private readonly showLobbyScene = (state: LobbyState): void => {
   this.sceneManager.setScene(
-    new LobbyScene(this.renderer, this.audioManager, this.socketClient, lobbyCode, {
+    new LobbyScene(this.renderer, this.audioManager, this.socketClient, state, {
       onMatchStarted: this.showMultiplayerPlayingScene,
       onLeave: this.showMultiplayerMenuScene,
     })
@@ -554,7 +571,7 @@ interface LobbyState {
 1. ✅ Create `src/api/SocketClient.ts`. Wrap `io()` from Socket.IO client.
 2. ✅ Typed `emit<T>(event, payload)` and `on<T>(event, handler)` / `off(event, handler)` methods.
 3. ✅ `connect(url)` and `disconnect()` lifecycle methods.
-4. ✅ `Game.ts` constructs one `SocketClient` instance and disconnects on game destroy. Connecting on multiplayer entry is deferred until a server URL exists.
+4. ✅ `Game.ts` constructs one `SocketClient` instance, connects on Multiplayer entry, and disconnects on game destroy.
 
 ### Phase E — HomeScene Split + MultiplayerMenuScene ✅ COMPLETE
 *First visible multiplayer UI.*
@@ -562,23 +579,41 @@ interface LobbyState {
 1. ✅ Update `HomeScene` to show "Single Player" and "Multiplayer" buttons.
 2. ✅ Create `MultiplayerMenuScene`:
    - ✅ Display name prompt flow (stored in `localStorage`).
-   - ✅ Create Lobby button → emits `lobby:create` when socket is connected; on `lobby:state` response → shows a LobbyScene placeholder.
-   - ✅ Join Lobby prompt + button → emits `lobby:join` when socket is connected; on `lobby:state` → shows a LobbyScene placeholder.
+   - ✅ Create Lobby button → emits `lobby:create` when socket is connected; on `lobby:state` response → transitions to `LobbyScene`.
+   - ✅ Join Lobby prompt + button → emits `lobby:join` when socket is connected; on `lobby:state` → transitions to `LobbyScene`.
    - ✅ Inline error display for `lobby:error`.
    - ✅ Back button → navigate to `HomeScene`.
 3. ✅ Scene subscribes to `lobby:state` and `lobby:error` in `initialize()`; unsubscribes in `destroy()`.
 
-### Phase F — LobbyScene ← CURRENT NEXT PHASE
+### Phase F.0 — Temporary Mock Socket.IO Server ✅ COMPLETE
 
-1. Renders `LobbyState.players` list. Shows lobby code.
-2. Host sees: Start Match button (enabled when ≥ 2 players; or 1 for dev), Leave button.
-3. Non-host sees: "Waiting for host to start..." and Leave button.
-4. On `match:started` event → navigate to `MultiplayerPlayingScene`.
-5. On `lobby:state` with disconnected host → re-render updated player list.
-6. Inline `lobby:error` display.
-7. Subscribes to `lobby:state`, `lobby:error`, `match:countdown`, `match:started` in `initialize()`.
+1. ✅ Created disposable Node.js + TypeScript Socket.IO server in `server/`.
+2. ✅ Implemented in-memory lobby create, join, leave, disconnect cleanup, host promotion, countdown, and mock `match:started`.
+3. ✅ No gameplay simulation, snapshots, enemies, persistence, Firebase, or `src/shared` imports.
 
-### Phase G — MultiplayerPlayingScene
+### Phase F — LobbyScene ✅ COMPLETE
+
+1. ✅ Renders full `LobbyState` from latest server `lobby:state`.
+2. ✅ Shows lobby code, player list, host indicator, and player count.
+3. ✅ Host sees Start Match; all players see Leave.
+4. ✅ On `match:countdown`, displays `{ secondsRemaining }`.
+5. ✅ On `match:started`, navigates to `MultiplayerPlayingScene` placeholder.
+6. ✅ Inline `lobby:error` display.
+7. ✅ Subscribes to `lobby:state`, `lobby:error`, `match:countdown`, `match:started` in `initialize()` and unsubscribes in `destroy()`.
+
+### Phase I — Authoritative Realtime Server ← CURRENT NEXT PHASE
+
+1. Replace the temporary mock with authoritative server-owned match state.
+2. Keep server-side authoritative lobby create, join, leave, host promotion, and code generation.
+3. Add `player:input` events.
+4. Implement match tick loop at 20–30 ticks/sec.
+5. Apply `player:input` events to `PlayerState` via `applyPlayerInput` + `clampPlayerToBounds`.
+6. Step enemies via `stepEnemyTowardTarget`. Spawn enemies via `selectSpawnPosition`.
+7. Resolve collisions via `circleRectPushback` + `collectEnemyCollisions` + `applyDamage`.
+8. Detect winner via `computeWinner`; emit `match:finished`.
+9. Broadcast `match:snapshot` each tick; broadcast `player:eliminated` on elimination.
+
+### Phase G — MultiplayerPlayingScene Client Rendering
 
 1. On `initialize()`: render world, obstacles, boundary, ground (same as `PlayingScene`).
 2. Local player rendered from last known `PlayerState`.
@@ -595,19 +630,6 @@ interface LobbyState {
 2. Highlight winner row.
 3. "Back to Lobby" button → navigate to `LobbyScene` (server already reset status to `waiting`).
 4. "Home" button → emit `lobby:leave`; navigate to `HomeScene`.
-
-### Phase I — Server (Node.js + Socket.IO)
-
-1. Initialize Node.js TypeScript project in `server/`.
-2. Install Socket.IO server.
-3. Import `src/shared/` constants and simulation functions (or build as a local package).
-4. Implement lobby management: create, join, leave, host promotion, code generation.
-5. Implement match tick loop at 20–30 ticks/sec.
-6. Apply `player:input` events to `PlayerState` via `applyPlayerInput` + `clampPlayerToBounds`.
-7. Step enemies via `stepEnemyTowardTarget`. Spawn enemies via `selectSpawnPosition`.
-8. Resolve collisions via `circleRectPushback` + `collectEnemyCollisions` + `applyDamage`.
-9. Detect winner via `computeWinner`; emit `match:finished`.
-10. Broadcast `match:snapshot` each tick; broadcast `player:eliminated` on elimination.
 
 ---
 

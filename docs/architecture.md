@@ -2,9 +2,9 @@
 
 ## Current Architecture
 
-Pixi Arena is currently a frontend-only Vite, TypeScript, and PixiJS browser game. The current implementation includes Home, Playing, Game Over, and Multiplayer Menu scenes; player movement; mobile joystick input; lives; survival scoring; difficulty scaling; world bounds; obstacles; and basic feedback.
+Pixi Arena is currently a Vite, TypeScript, and PixiJS browser game with a temporary local Socket.IO mock server for multiplayer lobby development. The current implementation includes Home, Playing, Game Over, Multiplayer Menu, Lobby, and Multiplayer Playing placeholder scenes; player movement; mobile joystick input; lives; survival scoring; difficulty scaling; world bounds; obstacles; and basic feedback.
 
-The multiplayer foundation is partially implemented on the client. Shared constants, shared simulation functions, and shared state types live under `src/shared/`. `Player` and `Enemy` are Pixi view wrappers over shared state. `SocketClient` exists as a thin Socket.IO transport wrapper. No realtime server, LobbyScene, MultiplayerPlayingScene, or MatchResultsScene exists yet.
+The multiplayer foundation is implemented through the lobby flow. Shared constants, shared simulation functions, and shared state types live under `src/shared/`. `Player` and `Enemy` are Pixi view wrappers over shared state. `SocketClient` exists as a thin Socket.IO transport wrapper. The mock server supports lobby create, join, leave, host reassignment, countdown, and `match:started`; it does not simulate gameplay.
 
 The current frontend separates engine setup, gameplay data, gameplay logic, scene orchestration, API access, and UI. Each layer should have one clear reason to change.
 
@@ -95,8 +95,14 @@ In multiplayer, the frontend update loop should also process server snapshots an
 
 ## Current Next Step
 
-Implement Phase F, LobbyScene with lobby state rendering, host controls, leave flow, countdown, and match started subscription.
+Implement Phase I — authoritative realtime server:
+- server-owned match state
+- input handling
+- simulation loop
+- snapshot broadcasting
 
 ## Current Risk
 
-The frontend now emits lobby events but no realtime server exists yet, so create/join cannot complete against a real backend until Phase I or a temporary mock server exists.
+The current server is a mock implementation and does not simulate gameplay.
+All multiplayer gameplay logic (movement, enemies, damage, winner) still needs to be implemented server-side.
+If the event contract is violated during Phase I, client scenes may require refactoring.

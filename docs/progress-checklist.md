@@ -50,20 +50,19 @@
 - [x] Phase C.1 complete — `Player` owns `PlayerState` + Pixi `Graphics`; movement/damage use `player.state`; temporary PlayerState casts removed
 - [x] Phase C.2 complete — `Enemy` owns `EnemyState` + Pixi `Graphics`; enemy movement/culling use `enemy.state.position`; Pixi sync is client-only
 - [x] Phase D complete — `src/api/SocketClient.ts`; typed Socket.IO transport wrapper only; no lobby/match/game lifecycle logic
-- [x] Phase E complete — HomeScene split into Single Player/Multiplayer; `MultiplayerMenuScene` added with display name, create/join/back, socket subscriptions, and LobbyScene placeholder state
+- [x] Phase E complete — HomeScene split into Single Player/Multiplayer; `MultiplayerMenuScene` added with display name, create/join/back, socket subscriptions, and LobbyScene transition
 - [x] Phase F.0 — Add temporary local mock Socket.IO server for lobby UI development
 - [x] Phase F — Implement LobbyScene with lobby state rendering, host controls, leave flow, countdown, and match:started subscription
 - [ ] Phase I — Create authoritative realtime server
-- [ ] Create realtime server
-- [x] Add Socket.IO
-- [ ] Add lobby create/join/leave
-- [ ] Add player input events
-- [ ] Add server-authoritative movement
-- [ ] Add snapshot broadcasting
-- [ ] Add remote player rendering
-- [ ] Add interpolation
-- [ ] Add server-owned enemies
-- [ ] Add multiplayer game over/winner logic
+- [ ] Phase I — Add lobby create/join/leave (server-side authoritative version)
+- [ ] Phase I — Add player input events
+- [ ] Phase I — Add server-authoritative movement
+- [ ] Phase I — Add snapshot broadcasting
+- [ ] Phase I — Add remote player rendering
+- [ ] Phase I — Add interpolation
+- [ ] Phase I — Add server-owned enemies
+- [ ] Phase I — Add multiplayer game over/winner logic
+- [ ] Phase G — Implement client gameplay rendering from authoritative server snapshots
 
 ## Firebase Persistence
 
@@ -89,10 +88,24 @@ Pixi Arena is moving toward a small multiplayer survival arena: up to 4 players 
 
 The goal remains interview-ready production quality over feature quantity. Authentication, registration, settings, cosmetics, matchmaking, and rule editors are outside the first multiplayer MVP.
 
+## Current Multiplayer State
+
+- Lobby flow is fully functional using a temporary mock Socket.IO server
+- Client is fully server-state-driven via `lobby:state`
+- Scene transitions work: MultiplayerMenu → Lobby → MultiplayerPlaying (placeholder)
+- No gameplay simulation exists yet in multiplayer
+- Match start is mock-triggered only
+
 ## Current Next Step
 
-Implement Phase I, the authoritative realtime server that will replace the temporary mock lobby server.
+Implement Phase I — authoritative realtime server:
+- server-owned match state
+- input handling
+- simulation loop
+- snapshot broadcasting
 
 ## Current Risk
 
-The frontend lobby flow now depends on a temporary mock Socket.IO server. No authoritative realtime server or multiplayer gameplay simulation exists yet.
+The current server is a mock implementation and does not simulate gameplay.
+All multiplayer gameplay logic (movement, enemies, damage, winner) still needs to be implemented server-side.
+If the event contract is violated during Phase I, client scenes may require refactoring.
