@@ -34,7 +34,7 @@ const SPAWN_INTERVAL_SECONDS = 1.5;
 const SPAWN_INTERVAL_SCALE_FACTOR = 0.02;
 const MINIMUM_SPAWN_INTERVAL_SECONDS = 0.45;
 const SPAWN_RADIUS_MIN = 400;
-const SPAWN_RADIUS_MAX = 800;
+const SPAWN_RADIUS_MAX = 650;
 const TWO_PI = Math.PI * 2;
 // If the world-clamped spawn lands closer to the player than this, fall back
 // to the nearest gate instead.

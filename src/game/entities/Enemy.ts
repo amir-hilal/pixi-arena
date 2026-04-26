@@ -3,7 +3,7 @@ import type { Position } from './Player';
 
 const ENEMY_COLOR = 0xf56565;
 const DEFAULT_ENEMY_RADIUS = 14;
-const DEFAULT_ENEMY_SPEED = 110;
+const DEFAULT_ENEMY_SPEED = 125;
 
 export class Enemy {
   public readonly renderable: Graphics;

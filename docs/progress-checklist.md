@@ -33,12 +33,12 @@
 - [x] Add world boundaries
 
 ## Game Feel Tuning
-- [ ] Tune enemy speed and spawn scaling
-- [ ] Tune obstacle density and placement
-- [ ] Tune gate spawn distance/behavior
-- [ ] Improve map readability
-- [ ] Verify mobile controls after world expansion
-- [ ] Run 3-minute playtest and document issues
+- [x] Tune enemy speed and spawn scaling
+- [x] Tune obstacle density and placement
+- [x] Tune gate spawn distance/behavior
+- [x] Improve map readability
+- [x] Verify mobile controls after world expansion
+- [x] Run 3-minute playtest and document issues
 
 ## Multiplayer
 
