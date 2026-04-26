@@ -2,7 +2,7 @@
 
 - [x] Setup project structure and documentation
 - [x] Set up Pixi application
-- [ ] Add player movement
+- [x] Add player movement
 - [ ] Add enemies
 - [ ] Add collision
 - [ ] Add scoring

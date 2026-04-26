@@ -1,7 +1,12 @@
-import { Application } from 'pixi.js';
+import { Application, type Container } from 'pixi.js';
 
 const BACKGROUND_COLOR = 0x101114;
 const CANVAS_ACCESSIBILITY_LABEL = 'Pixi Arena game canvas';
+
+interface ViewportSize {
+  width: number;
+  height: number;
+}
 
 export class Renderer {
   private application: Application | null = null;
@@ -23,6 +28,21 @@ export class Renderer {
     }
 
     this.application.render();
+  }
+
+  public addToStage(renderable: Container): void {
+    const application = this.getInitializedApplication();
+
+    application.stage.addChild(renderable);
+  }
+
+  public getViewportSize(): ViewportSize {
+    const application = this.getInitializedApplication();
+
+    return {
+      height: application.screen.height,
+      width: application.screen.width,
+    };
   }
 
   public destroy(): void {
@@ -51,5 +71,13 @@ export class Renderer {
 
     canvas.setAttribute('aria-label', CANVAS_ACCESSIBILITY_LABEL);
     container.appendChild(canvas);
+  }
+
+  private getInitializedApplication(): Application {
+    if (!this.isInitialized || this.application === null) {
+      throw new Error('Renderer must be initialized before use.');
+    }
+
+    return this.application;
   }
 }
