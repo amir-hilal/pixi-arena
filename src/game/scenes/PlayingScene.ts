@@ -12,6 +12,7 @@ import { VirtualJoystick } from '../ui/VirtualJoystick';
 import type { Scene } from './Scene';
 import { getWorldBounds } from '../utils/world';
 import { Camera } from '../core/Camera';
+import { GroundBackground } from '../ui/GroundBackground';
 
 const INITIAL_PLAYER_POSITION_RATIO = 0.5;
 const INITIAL_SCORE = 0;
@@ -49,6 +50,7 @@ export class PlayingScene implements Scene {
   private readonly movementSystem = new MovementSystem();
   private player: Player | null = null;
   private worldContainer: Container | null = null;
+  private ground: GroundBackground | null = null;
   private lives = INITIAL_LIVES;
   private livesText: Text | null = null;
   private score = INITIAL_SCORE;
@@ -84,11 +86,13 @@ export class PlayingScene implements Scene {
     this.scoreText = this.createScoreText();
     this.timerText = this.createTimerText();
     this.livesText = this.createLivesText();
+    this.worldContainer = new Container();
+    this.renderer.addToStage(this.worldContainer);
     this.renderer.addToStage(this.scoreText);
     this.renderer.addToStage(this.timerText);
     this.renderer.addToStage(this.livesText);
-    this.worldContainer = new Container();
-    this.renderer.addToStage(this.worldContainer);
+    this.ground = new GroundBackground();
+    this.worldContainer.addChild(this.ground.renderable);
     this.player = new Player(this.getInitialPlayerPosition());
     this.worldContainer.addChild(this.player.renderable);
     this.initializeVirtualJoystick();
@@ -137,6 +141,8 @@ export class PlayingScene implements Scene {
       this.worldContainer.destroy({ children: true });
       this.worldContainer = null;
     }
+
+    this.ground = null;
 
     if (this.scoreText !== null) {
       this.renderer.removeFromStage(this.scoreText);

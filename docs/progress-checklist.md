@@ -25,9 +25,9 @@
 
 ## World Expansion
 
-- [ ] Add world coordinate system
-- [ ] Add camera follow
-- [ ] Add ground/tile background
+- [x] Add world coordinate system
+- [x] Add camera follow
+- [x] Add ground/tile background
 - [ ] Add obstacles
 - [ ] Add obstacle collision
 - [ ] Add world boundaries
