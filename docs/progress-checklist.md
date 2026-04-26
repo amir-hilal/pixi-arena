@@ -16,7 +16,7 @@
 - [x] Add survival-based scoring
 - [x] Add difficulty scaling over time
 - [x] Add basic sound/visual feedback
-- [ ] Add responsive UI polish
+- [x] Add responsive UI polish
 
 ## Product Features
 
