@@ -4,22 +4,50 @@ import type { AudioManager } from '../core/AudioManager';
 import type { Renderer } from '../core/Renderer';
 import type { Scene } from './Scene';
 
-interface LobbyStatePayload {
-  lobbyCode?: string;
+export interface LobbyPlayerPayload {
+  id: string;
+  name: string;
+  isHost: boolean;
+  isConnected: boolean;
 }
 
-interface LobbyErrorPayload {
+export interface LobbyStatePayload {
+  lobbyCode: string;
+  players: LobbyPlayerPayload[];
+  status: 'waiting' | 'countdown' | 'playing';
+  maxPlayers: 4;
+}
+
+export interface LobbyErrorPayload {
   message: string;
+}
+
+export interface MatchCountdownPayload {
+  secondsRemaining: number;
+}
+
+export interface MatchStartedPayload {
+  matchId: string;
+  initialState: {
+    tick: number;
+    players: [];
+    enemies: [];
+    elapsedSeconds: number;
+  };
 }
 
 interface MultiplayerIncomingEvents {
   'lobby:state': LobbyStatePayload;
   'lobby:error': LobbyErrorPayload;
+  'match:countdown': MatchCountdownPayload;
+  'match:started': MatchStartedPayload;
 }
 
 interface MultiplayerOutgoingEvents {
   'lobby:create': { playerName: string };
   'lobby:join': { lobbyCode: string; playerName: string };
+  'lobby:leave': undefined;
+  'lobby:startMatch': undefined;
 }
 
 export type MultiplayerSocketClient = SocketClient<
@@ -44,6 +72,7 @@ const BACK_TEXT_Y_OFFSET = 164;
 const STATUS_TEXT_Y_OFFSET = 212;
 const TEXT_COLOR = 0xffffff;
 const STATUS_TEXT_COLOR = 0xcbd5e1;
+const DEFAULT_SOCKET_URL = 'http://localhost:3001';
 
 export class MultiplayerMenuScene implements Scene {
   private titleText: Text | null = null;
@@ -59,10 +88,12 @@ export class MultiplayerMenuScene implements Scene {
     private readonly audioManager: AudioManager,
     private readonly socketClient: MultiplayerSocketClient,
     private readonly onBack: () => void,
+    private readonly onLobbyReady: (state: LobbyStatePayload) => void,
   ) {}
 
   public initialize(): void {
     this.displayName = this.getStoredDisplayName();
+    this.ensureSocketConnection();
     this.socketClient.on('lobby:state', this.handleLobbyState);
     this.socketClient.on('lobby:error', this.handleLobbyError);
 
@@ -293,12 +324,25 @@ export class MultiplayerMenuScene implements Scene {
   };
 
   private readonly handleLobbyState = (state: LobbyStatePayload): void => {
-    const lobbyCode = state.lobbyCode ?? 'lobby';
-
-    this.setStatus(`Lobby ${lobbyCode} ready. LobbyScene coming next.`);
+    this.onLobbyReady(state);
   };
 
   private readonly handleLobbyError = (error: LobbyErrorPayload): void => {
     this.setStatus(error.message);
   };
+
+  private ensureSocketConnection(): void {
+    if (this.socketClient.isConnected()) {
+      return;
+    }
+
+    this.socketClient.connect(getSocketUrl());
+  }
+}
+
+function getSocketUrl(): string {
+  return (
+    (import.meta.env.VITE_SOCKET_URL as string | undefined) ??
+    DEFAULT_SOCKET_URL
+  );
 }

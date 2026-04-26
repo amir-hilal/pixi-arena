@@ -5,6 +5,7 @@ import { Server } from 'socket.io';
 import type { Socket } from 'socket.io';
 import {
   createLobby,
+  getLobby,
   getLobbyForSocket,
   isHost,
   joinLobby,
@@ -43,6 +44,7 @@ io.on('connection', (socket) => {
 
   socket.on('lobby:create', (payload: LobbyCreatePayload) => {
     try {
+      leaveCurrentLobby(socket, 'switch');
       const lobby = createLobby(socket.id, payload.playerName);
       socket.join(lobby.lobbyCode);
       socket.emit('lobby:state', lobby);
@@ -54,6 +56,34 @@ io.on('connection', (socket) => {
 
   socket.on('lobby:join', (payload: LobbyJoinPayload) => {
     try {
+      const targetLobby = getLobby(payload.lobbyCode);
+
+      if (targetLobby === null) {
+        throw new Error('Lobby not found.');
+      }
+
+      const currentLobby = getLobbyForSocket(socket.id);
+
+      if (currentLobby?.lobbyCode === targetLobby.lobbyCode) {
+        const lobby = joinLobby(socket.id, payload.lobbyCode, payload.playerName);
+        socket.join(lobby.lobbyCode);
+        emitLobbyState(lobby);
+        console.log(`lobby join: ${lobby.lobbyCode} player=${socket.id}`);
+        return;
+      }
+
+      if (targetLobby.status !== 'waiting') {
+        throw new Error('Lobby is already in progress.');
+      }
+
+      if (targetLobby.players.length >= targetLobby.maxPlayers) {
+        throw new Error('Lobby is full.');
+      }
+
+      if (currentLobby !== null) {
+        leaveCurrentLobby(socket, 'switch');
+      }
+
       const lobby = joinLobby(socket.id, payload.lobbyCode, payload.playerName);
       socket.join(lobby.lobbyCode);
       emitLobbyState(lobby);
@@ -64,7 +94,7 @@ io.on('connection', (socket) => {
   });
 
   socket.on('lobby:leave', () => {
-    leaveLobby(socket, 'leave');
+    leaveCurrentLobby(socket, 'leave');
   });
 
   socket.on('lobby:startMatch', () => {
@@ -90,7 +120,7 @@ io.on('connection', (socket) => {
   });
 
   socket.on('disconnect', () => {
-    leaveLobby(socket, 'disconnect');
+    leaveCurrentLobby(socket, 'disconnect');
     console.log(`socket disconnected: ${socket.id}`);
   });
 });
@@ -100,7 +130,10 @@ httpServer.listen(PORT, () => {
   console.log(`CORS origin: ${FRONTEND_ORIGIN}`);
 });
 
-function leaveLobby(socket: Socket, reason: 'leave' | 'disconnect'): void {
+function leaveCurrentLobby(
+  socket: Socket,
+  reason: 'leave' | 'disconnect' | 'switch',
+): void {
   const lobby = getLobbyForSocket(socket.id);
 
   if (lobby === null) {

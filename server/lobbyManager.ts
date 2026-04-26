@@ -8,6 +8,8 @@ const lobbies = new Map<string, LobbyState>();
 const socketLobbyCodes = new Map<string, string>();
 
 export function createLobby(socketId: string, playerName: string): LobbyState {
+  removePlayer(socketId);
+
   const lobbyCode = generateUniqueLobbyCode();
   const lobby: LobbyState = {
     lobbyCode,
@@ -36,6 +38,11 @@ export function joinLobby(
 ): LobbyState {
   const normalizedLobbyCode = lobbyCode.trim().toUpperCase();
   const lobby = getLobbyOrThrow(normalizedLobbyCode);
+  const currentLobbyCode = socketLobbyCodes.get(socketId);
+
+  if (currentLobbyCode === lobby.lobbyCode) {
+    return lobby;
+  }
 
   if (lobby.status !== 'waiting') {
     throw new Error('Lobby is already in progress.');

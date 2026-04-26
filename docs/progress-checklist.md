@@ -51,8 +51,8 @@
 - [x] Phase C.2 complete — `Enemy` owns `EnemyState` + Pixi `Graphics`; enemy movement/culling use `enemy.state.position`; Pixi sync is client-only
 - [x] Phase D complete — `src/api/SocketClient.ts`; typed Socket.IO transport wrapper only; no lobby/match/game lifecycle logic
 - [x] Phase E complete — HomeScene split into Single Player/Multiplayer; `MultiplayerMenuScene` added with display name, create/join/back, socket subscriptions, and LobbyScene placeholder state
-- [ ] Phase F.0 — Add temporary local mock Socket.IO server for lobby UI development
-- [ ] Phase F — Implement LobbyScene with lobby state rendering, host controls, leave flow, countdown, and match:started subscription
+- [x] Phase F.0 — Add temporary local mock Socket.IO server for lobby UI development
+- [x] Phase F — Implement LobbyScene with lobby state rendering, host controls, leave flow, countdown, and match:started subscription
 - [ ] Phase I — Create authoritative realtime server
 - [ ] Create realtime server
 - [x] Add Socket.IO
@@ -91,8 +91,8 @@ The goal remains interview-ready production quality over feature quantity. Authe
 
 ## Current Next Step
 
-Implement Phase F, LobbyScene with lobby state rendering, host controls, leave flow, countdown, and match started subscription.
+Implement Phase I, the authoritative realtime server that will replace the temporary mock lobby server.
 
 ## Current Risk
 
-The frontend now emits lobby events but no realtime server exists yet, so create/join cannot complete against a real backend until Phase I or a temporary mock server exists.
+The frontend lobby flow now depends on a temporary mock Socket.IO server. No authoritative realtime server or multiplayer gameplay simulation exists yet.

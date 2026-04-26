@@ -71,6 +71,10 @@ export class SocketClient<
     return this.socket?.connected ?? false;
   }
 
+  public getId(): string | null {
+    return this.socket?.id ?? null;
+  }
+
   private getSocket(): UntypedSocket {
     if (this.socket === null) {
       throw new Error('SocketClient is not connected.');

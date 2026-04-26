@@ -1,10 +1,14 @@
 import { SocketClient } from '../../api/SocketClient';
 import { GameOverScene } from '../scenes/GameOverScene';
 import { HomeScene } from '../scenes/HomeScene';
+import { LobbyScene } from '../scenes/LobbyScene';
 import {
   MultiplayerMenuScene,
+  type LobbyStatePayload,
+  type MatchStartedPayload,
   type MultiplayerSocketClient,
 } from '../scenes/MultiplayerMenuScene';
+import { MultiplayerPlayingScene } from '../scenes/MultiplayerPlayingScene';
 import { PlayingScene } from '../scenes/PlayingScene';
 import { SceneManager } from '../scenes/SceneManager';
 import { AudioManager } from './AudioManager';
@@ -108,7 +112,29 @@ export class Game {
         this.audioManager,
         this.socketClient,
         this.showHomeScene,
+        this.showLobbyScene,
       ),
+    );
+  };
+
+  private readonly showLobbyScene = (state: LobbyStatePayload): void => {
+    this.sceneManager?.setScene(
+      new LobbyScene(
+        this.renderer,
+        this.audioManager,
+        this.socketClient,
+        state,
+        this.showMultiplayerMenuScene,
+        this.showMultiplayerPlayingScene,
+      ),
+    );
+  };
+
+  private readonly showMultiplayerPlayingScene = (
+    match: MatchStartedPayload,
+  ): void => {
+    this.sceneManager?.setScene(
+      new MultiplayerPlayingScene(this.renderer, match),
     );
   };
 
