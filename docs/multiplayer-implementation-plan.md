@@ -515,7 +515,7 @@ interface LobbyState {
 1. ✅ Create `src/shared/simulation/movement.ts`. Exports `applyPlayerInput(state, input, deltaSeconds, speed)` and `clampPlayerToBounds(state, world, radius)` using `PlayerState`, `InputState`, `WorldState`. `MovementSystem` delegates via pre-Phase C adapters; `syncRenderable` remains client-only.
 2. ✅ Create `src/shared/simulation/collision.ts`. Exports `circlesOverlap(a, b)` and `circleRectPushback(circlePos, radius, rect): Vector2 | null`. `CollisionSystem` and `PlayingScene.resolveCircleRectCollision` delegate to these; pushback is applied by callers; `syncRenderable` remains client-only.
 3. ✅ Create `src/shared/simulation/enemyBehavior.ts`. Extract spawn interval/position logic, enemy step logic, and culling bounds checks. `EnemySystem` delegates while keeping Pixi entity ownership and render sync client-only.
-4. Create `src/shared/simulation/damage.ts`. Extract enemy collision collection, damage application, winner detection from `PlayingScene`.
+4. ✅ Create `src/shared/simulation/damage.ts`. Extract enemy collision collection, damage application, and winner computation from `PlayingScene`.
 5. Update `MovementSystem`, `CollisionSystem`, `EnemySystem`, `PlayingScene` to delegate to shared functions. Keep all `syncRenderable` calls in client layer.
 6. Verify: zero TypeScript errors. Single-player works.
 

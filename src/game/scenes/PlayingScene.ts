@@ -1,7 +1,6 @@
 import { Container, Text } from 'pixi.js';
 import { Player, type Position } from '../entities/Player';
 import type { Enemy } from '../entities/Enemy';
-import { CollisionSystem } from '../systems/CollisionSystem';
 import { EnemySystem } from '../systems/EnemySystem';
 import { MovementSystem } from '../systems/MovementSystem';
 import { InputManager } from '../core/InputManager';
@@ -19,6 +18,13 @@ import type { ObstacleRect } from '../entities/Obstacle';
 import { INITIAL_LIVES } from '../../shared/constants/player';
 import { POINTS_PER_SECOND } from '../../shared/constants/simulation';
 import { circleRectPushback } from '../../shared/simulation/collision';
+import {
+  applyDamage,
+  collectEnemyCollisions,
+  computeWinner,
+  type PlayerDamageState,
+} from '../../shared/simulation/damage';
+import type { PlayerState } from '../../shared/types/index';
 
 const INITIAL_PLAYER_POSITION_RATIO = 0.5;
 const INITIAL_SCORE = 0;
@@ -54,7 +60,6 @@ interface CircleCollider {
 
 export class PlayingScene implements Scene {
   private readonly camera = new Camera();
-  private readonly collisionSystem = new CollisionSystem();
   private readonly enemySystem = new EnemySystem();
   private readonly inputManager = new InputManager();
   private readonly movementSystem = new MovementSystem();
@@ -349,8 +354,8 @@ export class PlayingScene implements Scene {
   }
 
   private resolvePlayerEnemyCollisions(player: Player): void {
-    const collidedEnemies = this.collisionSystem.checkPlayerEnemyCollision(
-      player,
+    const collidedEnemies = collectEnemyCollisions(
+      this.toPlayerDamageState(player),
       this.enemySystem.getEnemies(),
     );
 
@@ -364,10 +369,10 @@ export class PlayingScene implements Scene {
       return;
     }
 
-    this.damagePlayer(removedEnemies.length);
+    const playerState = this.damagePlayer(player, removedEnemies.length);
     this.removeEnemies(removedEnemies);
 
-    if (this.lives <= 0) {
+    if (computeWinner([playerState]) === null) {
       this.onGameOver(this.getDisplayScore());
       return;
     }
@@ -375,9 +380,32 @@ export class PlayingScene implements Scene {
     this.startDamageFeedback();
   }
 
-  private damagePlayer(damage: number): void {
-    this.lives = Math.max(0, this.lives - damage);
+  private damagePlayer(player: Player, damage: number): PlayerState {
+    const playerState = this.toPlayerState(player);
+
+    applyDamage(playerState, damage);
+    this.lives = playerState.lives;
     this.updateLivesText();
+
+    return playerState;
+  }
+
+  private toPlayerDamageState(player: Player): PlayerDamageState {
+    return {
+      ...this.toPlayerState(player),
+      radius: player.radius,
+    };
+  }
+
+  private toPlayerState(player: Player): PlayerState {
+    return {
+      id: 'single-player',
+      position: player.position,
+      lives: this.lives,
+      isEliminated: this.lives <= 0,
+      survivalTimeSeconds: this.survivalTimeSeconds,
+      score: this.score,
+    };
   }
 
   private startDamageFeedback(): void {
