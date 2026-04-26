@@ -5,8 +5,10 @@ import { CollisionSystem } from '../systems/CollisionSystem';
 import { EnemySystem } from '../systems/EnemySystem';
 import { MovementSystem } from '../systems/MovementSystem';
 import { InputManager } from '../core/InputManager';
+import type { InputDirection } from '../core/InputManager';
 import type { AudioManager } from '../core/AudioManager';
 import type { Renderer } from '../core/Renderer';
+import { VirtualJoystick } from '../ui/VirtualJoystick';
 import type { Scene } from './Scene';
 
 const INITIAL_PLAYER_POSITION_RATIO = 0.5;
@@ -35,6 +37,7 @@ const DAMAGED_PLAYER_ALPHA = 0.35;
 const DEFAULT_PLAYER_ALPHA = 1;
 const DAMAGE_SHAKE_INTENSITY = 8;
 const DAMAGE_SHAKE_FREQUENCY = 70;
+const NEUTRAL_DIRECTION = 0;
 
 export class PlayingScene implements Scene {
   private readonly collisionSystem = new CollisionSystem();
@@ -50,6 +53,7 @@ export class PlayingScene implements Scene {
   private survivalTimeSeconds = INITIAL_SURVIVAL_TIME_SECONDS;
   private displayedSurvivalSeconds = INITIAL_SURVIVAL_TIME_SECONDS;
   private timerText: Text | null = null;
+  private virtualJoystick: VirtualJoystick | null = null;
   private damageFlashSeconds = 0;
   private damageShakeSeconds = 0;
   private isInitialized = false;
@@ -79,6 +83,8 @@ export class PlayingScene implements Scene {
     this.renderer.addToStage(this.livesText);
     this.player = new Player(this.getInitialPlayerPosition());
     this.renderer.addToStage(this.player.renderable);
+    this.initializeVirtualJoystick();
+    window.addEventListener('resize', this.handleViewportResize);
     this.isInitialized = true;
   }
 
@@ -92,7 +98,7 @@ export class PlayingScene implements Scene {
     this.movementSystem.update({
       bounds: this.renderer.getViewportSize(),
       deltaSeconds,
-      inputManager: this.inputManager,
+      movementDirection: this.getMovementDirection(),
       player: this.player,
     });
     this.updateEnemies(deltaSeconds, this.player);
@@ -100,7 +106,9 @@ export class PlayingScene implements Scene {
   }
 
   public destroy(): void {
+    window.removeEventListener('resize', this.handleViewportResize);
     this.inputManager.destroy();
+    this.destroyVirtualJoystick();
     this.removeEnemies(this.enemySystem.destroy());
 
     if (this.player !== null) {
@@ -185,6 +193,42 @@ export class PlayingScene implements Scene {
     livesText.position.set(LIVES_TEXT_X, LIVES_TEXT_Y);
 
     return livesText;
+  }
+
+  private initializeVirtualJoystick(): void {
+    if (!VirtualJoystick.isSupported()) {
+      return;
+    }
+
+    this.virtualJoystick = new VirtualJoystick(this.renderer.getViewportSize());
+    this.renderer.addToStage(this.virtualJoystick.renderable);
+  }
+
+  private destroyVirtualJoystick(): void {
+    if (this.virtualJoystick === null) {
+      return;
+    }
+
+    this.renderer.removeFromStage(this.virtualJoystick.renderable);
+    this.virtualJoystick.destroy();
+    this.virtualJoystick = null;
+  }
+
+  private readonly handleViewportResize = (): void => {
+    this.virtualJoystick?.resize(this.renderer.getViewportSize());
+  };
+
+  private getMovementDirection(): InputDirection {
+    const keyboardDirection = this.inputManager.getMovementDirection();
+    const joystickDirection = this.virtualJoystick?.getDirection() ?? {
+      x: NEUTRAL_DIRECTION,
+      y: NEUTRAL_DIRECTION,
+    };
+
+    return {
+      x: keyboardDirection.x + joystickDirection.x,
+      y: keyboardDirection.y + joystickDirection.y,
+    };
   }
 
   private updateEnemies(deltaSeconds: number, player: Player): void {

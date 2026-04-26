@@ -1,4 +1,4 @@
-import type { InputCode, InputManager } from '../core/InputManager';
+import type { InputDirection } from '../core/InputManager';
 import type { Player } from '../entities/Player';
 
 interface ViewportBounds {
@@ -9,72 +9,39 @@ interface ViewportBounds {
 interface MovementUpdate {
   bounds: ViewportBounds;
   deltaSeconds: number;
-  inputManager: InputManager;
+  movementDirection: InputDirection;
   player: Player;
 }
 
-const NEGATIVE_X_KEYS: InputCode[] = ['ArrowLeft', 'KeyA'];
-const POSITIVE_X_KEYS: InputCode[] = ['ArrowRight', 'KeyD'];
-const NEGATIVE_Y_KEYS: InputCode[] = ['ArrowUp', 'KeyW'];
-const POSITIVE_Y_KEYS: InputCode[] = ['ArrowDown', 'KeyS'];
-const NEGATIVE_AXIS_VALUE = -1;
-const POSITIVE_AXIS_VALUE = 1;
 const NEUTRAL_AXIS_VALUE = 0;
 
 export class MovementSystem {
   public update(update: MovementUpdate): void {
-    const movementX = this.getAxisValue(
-      update.inputManager,
-      NEGATIVE_X_KEYS,
-      POSITIVE_X_KEYS,
+    this.movePlayer(
+      update.player,
+      update.movementDirection,
+      update.deltaSeconds,
     );
-    const movementY = this.getAxisValue(
-      update.inputManager,
-      NEGATIVE_Y_KEYS,
-      POSITIVE_Y_KEYS,
-    );
-
-    this.movePlayer(update.player, movementX, movementY, update.deltaSeconds);
     this.keepPlayerInBounds(update.player, update.bounds);
     this.syncRenderable(update.player);
   }
 
-  private getAxisValue(
-    inputManager: InputManager,
-    negativeKeys: InputCode[],
-    positiveKeys: InputCode[],
-  ): number {
-    const negativeValue = this.isAnyPressed(inputManager, negativeKeys)
-      ? NEGATIVE_AXIS_VALUE
-      : NEUTRAL_AXIS_VALUE;
-    const positiveValue = this.isAnyPressed(inputManager, positiveKeys)
-      ? POSITIVE_AXIS_VALUE
-      : NEUTRAL_AXIS_VALUE;
-
-    return negativeValue + positiveValue;
-  }
-
-  private isAnyPressed(
-    inputManager: InputManager,
-    inputCodes: InputCode[],
-  ): boolean {
-    return inputCodes.some((inputCode) => inputManager.isPressed(inputCode));
-  }
-
   private movePlayer(
     player: Player,
-    movementX: number,
-    movementY: number,
+    movementDirection: InputDirection,
     deltaSeconds: number,
   ): void {
-    const movementLength = Math.hypot(movementX, movementY);
+    const movementLength = Math.hypot(
+      movementDirection.x,
+      movementDirection.y,
+    );
 
     if (movementLength === NEUTRAL_AXIS_VALUE) {
       return;
     }
 
-    const normalizedX = movementX / movementLength;
-    const normalizedY = movementY / movementLength;
+    const normalizedX = movementDirection.x / movementLength;
+    const normalizedY = movementDirection.y / movementLength;
     const distance = player.speed * deltaSeconds;
 
     player.position.x += normalizedX * distance;
