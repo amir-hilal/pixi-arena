@@ -51,6 +51,9 @@
 - [x] Phase C.2 complete — `Enemy` owns `EnemyState` + Pixi `Graphics`; enemy movement/culling use `enemy.state.position`; Pixi sync is client-only
 - [x] Phase D complete — `src/api/SocketClient.ts`; typed Socket.IO transport wrapper only; no lobby/match/game lifecycle logic
 - [x] Phase E complete — HomeScene split into Single Player/Multiplayer; `MultiplayerMenuScene` added with display name, create/join/back, socket subscriptions, and LobbyScene placeholder state
+- [ ] Phase F.0 — Add temporary local mock Socket.IO server for lobby UI development
+- [ ] Phase F — Implement LobbyScene with lobby state rendering, host controls, leave flow, countdown, and match:started subscription
+- [ ] Phase I — Create authoritative realtime server
 - [ ] Create realtime server
 - [x] Add Socket.IO
 - [ ] Add lobby create/join/leave
@@ -85,3 +88,11 @@
 Pixi Arena is moving toward a small multiplayer survival arena: up to 4 players share a lobby, avoid enemies, and the player who survives longest wins.
 
 The goal remains interview-ready production quality over feature quantity. Authentication, registration, settings, cosmetics, matchmaking, and rule editors are outside the first multiplayer MVP.
+
+## Current Next Step
+
+Implement Phase F, LobbyScene with lobby state rendering, host controls, leave flow, countdown, and match started subscription.
+
+## Current Risk
+
+The frontend now emits lobby events but no realtime server exists yet, so create/join cannot complete against a real backend until Phase I or a temporary mock server exists.

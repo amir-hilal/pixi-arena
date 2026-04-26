@@ -1,5 +1,13 @@
 # Implementation Roadmap
 
+## Current Status
+
+This roadmap is a high-level product roadmap. For multiplayer implementation details, `docs/multiplayer-implementation-plan.md` is authoritative.
+
+Single-player stabilization, world/camera work, shared simulation extraction, entity state/view wrappers, SocketClient, and the Home/Multiplayer menu split are complete. The current next step is Phase F from the multiplayer plan: implement LobbyScene with lobby state rendering, host controls, leave flow, countdown, and match started subscription.
+
+Current risk: the frontend now emits lobby events but no realtime server exists yet, so create/join cannot complete against a real backend until Phase I or a temporary mock server exists.
+
 ## Phase 1: Current Single-Player Stabilization
 
 Goal: stabilize the existing browser game before expanding the world or adding networking.

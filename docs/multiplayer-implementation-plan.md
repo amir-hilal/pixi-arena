@@ -11,11 +11,32 @@ It supersedes scattered notes in `multiplayer-architecture.md` where the two con
 - Socket.IO for realtime transport.
 - Firebase for persistence only (later).
 - Up to 4 players per lobby.
-- `Game.ts` owns socket lifecycle and scene switching only.
+- `Game.ts` owns scene switching and high-level socket lifecycle only. It constructs the `SocketClient` but does not contain lobby or match logic.
 - Each scene subscribes and unsubscribes its own socket events.
 - `SocketClient` is a thin typed wrapper — no lobby or match logic inside it.
 - No ECS. No physics engine. No prediction or interpolation in v1.
 - Shared simulation layer must exist before the server is written.
+
+---
+
+## Current Status
+
+Phases A through E are complete:
+
+- Shared constants, types, and pure simulation functions exist under `src/shared/`.
+- `Player` and `Enemy` are Pixi view wrappers over `PlayerState` and `EnemyState`.
+- `SocketClient` exists as a typed Socket.IO transport wrapper.
+- `HomeScene` offers Single Player and Multiplayer.
+- `MultiplayerMenuScene` stores display name, shows Create Lobby / Join Lobby / Back, subscribes to `lobby:state` and `lobby:error`, emits lobby events only when connected, and shows a LobbyScene placeholder.
+- No realtime server, `LobbyScene`, `MultiplayerPlayingScene`, or `MatchResultsScene` exists yet.
+
+## Current Next Step
+
+Implement Phase F, LobbyScene with lobby state rendering, host controls, leave flow, countdown, and match started subscription.
+
+## Current Risk
+
+The frontend now emits lobby events but no realtime server exists yet, so create/join cannot complete against a real backend until Phase I or a temporary mock server exists.
 
 ---
 
@@ -51,17 +72,17 @@ MatchResultsScene
 
 | File | Purpose |
 |---|---|
-| `src/api/SocketClient.ts` | Typed Socket.IO client wrapper |
-| `src/game/scenes/MultiplayerMenuScene.ts` | Display name input, Create / Join UI |
+| `src/api/SocketClient.ts` | Typed Socket.IO client wrapper — complete |
+| `src/game/scenes/MultiplayerMenuScene.ts` | Display name input, Create / Join UI — complete |
 | `src/game/scenes/LobbyScene.ts` | Player list, host controls, leave button |
 | `src/game/scenes/MultiplayerPlayingScene.ts` | Renders snapshots, sends input each frame |
 | `src/game/scenes/MatchResultsScene.ts` | Ranked results, back to lobby / home |
-| `src/shared/` | Constants, types, simulation (see Part 2) |
+| `src/shared/` | Constants, types, simulation (see Part 2) — complete |
 | `server/` | Node.js + Socket.IO authoritative server |
 
 **Modified existing files:**
-- `src/game/scenes/HomeScene.ts` — add Single Player / Multiplayer mode buttons
-- `src/game/core/Game.ts` — add `SocketClient` lifecycle; add multiplayer scene transition callbacks
+- `src/game/scenes/HomeScene.ts` — Single Player / Multiplayer mode buttons complete
+- `src/game/core/Game.ts` — constructs `SocketClient`, wires Home / Playing / Multiplayer menu scenes, and disconnects on destroy. Multiplayer connect/disconnect-on-entry behavior is deferred until a server URL and lobby flow exist.
 
 ### 1.3 Scene Construction Pattern
 
@@ -71,7 +92,7 @@ All scenes follow the existing pattern established by `PlayingScene`:
 constructor(renderer, audioManager, ...callbacks)
 ```
 
-`Game.ts` constructs scenes and wires their callbacks. Each scene subscribes to socket events in `initialize()` and unsubscribes in `destroy()`. No socket logic in `Game.ts` beyond connect/disconnect.
+`Game.ts` constructs scenes and wires their callbacks. Each scene subscribes to socket events in `initialize()` and unsubscribes in `destroy()`. No socket logic belongs in `Game.ts` beyond constructing the shared `SocketClient` and later connecting/disconnecting at multiplayer entry/exit.
 
 ```
 // Game.ts (sketch — not implementation)
@@ -509,33 +530,33 @@ interface LobbyState {
 4. Import shared constants in existing files. Remove duplicates.
 5. Verify: zero TypeScript errors. Single-player works.
 
-### Phase B — Shared Simulation Functions
+### Phase B — Shared Simulation Functions ✅ COMPLETE
 *Extracts math from systems without changing system behavior.*
 
 1. ✅ Create `src/shared/simulation/movement.ts`. Exports `applyPlayerInput(state, input, deltaSeconds, speed)` and `clampPlayerToBounds(state, world, radius)` using `PlayerState`, `InputState`, `WorldState`. `MovementSystem` delegates via pre-Phase C adapters; `syncRenderable` remains client-only.
 2. ✅ Create `src/shared/simulation/collision.ts`. Exports `circlesOverlap(a, b)` and `circleRectPushback(circlePos, radius, rect): Vector2 | null`. `CollisionSystem` and `PlayingScene.resolveCircleRectCollision` delegate to these; pushback is applied by callers; `syncRenderable` remains client-only.
 3. ✅ Create `src/shared/simulation/enemyBehavior.ts`. Extract spawn interval/position logic, enemy step logic, and culling bounds checks. `EnemySystem` delegates while keeping Pixi entity ownership and render sync client-only.
 4. ✅ Create `src/shared/simulation/damage.ts`. Extract enemy collision collection, damage application, and winner computation from `PlayingScene`.
-5. Update `MovementSystem`, `CollisionSystem`, `EnemySystem`, `PlayingScene` to delegate to shared functions. Keep all `syncRenderable` calls in client layer.
-6. Verify: zero TypeScript errors. Single-player works.
+5. ✅ Update `MovementSystem`, `CollisionSystem`, `EnemySystem`, `PlayingScene` to delegate to shared functions. Keep all `syncRenderable` calls in client layer.
+6. ✅ Verify: zero TypeScript errors. Single-player works.
 
-### Phase C — Entity View Wrappers
+### Phase C — Entity View Wrappers ✅ COMPLETE
 *Prepares for server. Do not start this before Phase B is stable.*
 
 1. ✅ Define `PlayerState` as the data source for `Player`. `Player` holds a `state: PlayerState` and a `renderable: Graphics`. View reads `state.position` to sync renderable.
 2. ✅ Same pattern for `Enemy` → `EnemyState`.
-3. All systems operate on `PlayerState`/`EnemyState` directly; call `syncRenderable` at end of each update pass.
-4. Verify: zero TypeScript errors. Single-player works.
+3. ✅ Client systems now use `player.state` / `enemy.state.position` where shared simulation expects state. Pixi sync remains in client wrappers and scenes.
+4. ✅ Verify: zero TypeScript errors. Single-player works.
 
-### Phase D — SocketClient
+### Phase D — SocketClient ✅ COMPLETE
 *No scenes yet.*
 
 1. ✅ Create `src/api/SocketClient.ts`. Wrap `io()` from Socket.IO client.
 2. ✅ Typed `emit<T>(event, payload)` and `on<T>(event, handler)` / `off(event, handler)` methods.
 3. ✅ `connect(url)` and `disconnect()` lifecycle methods.
-4. Deferred to multiplayer UI/lifecycle wiring: `Game.ts` constructs one `SocketClient` instance. Connects on multiplayer entry. Disconnects on home return.
+4. ✅ `Game.ts` constructs one `SocketClient` instance and disconnects on game destroy. Connecting on multiplayer entry is deferred until a server URL exists.
 
-### Phase E — HomeScene Split + MultiplayerMenuScene
+### Phase E — HomeScene Split + MultiplayerMenuScene ✅ COMPLETE
 *First visible multiplayer UI.*
 
 1. ✅ Update `HomeScene` to show "Single Player" and "Multiplayer" buttons.
@@ -547,7 +568,7 @@ interface LobbyState {
    - ✅ Back button → navigate to `HomeScene`.
 3. ✅ Scene subscribes to `lobby:state` and `lobby:error` in `initialize()`; unsubscribes in `destroy()`.
 
-### Phase F — LobbyScene
+### Phase F — LobbyScene ← CURRENT NEXT PHASE
 
 1. Renders `LobbyState.players` list. Shows lobby code.
 2. Host sees: Start Match button (enabled when ≥ 2 players; or 1 for dev), Leave button.

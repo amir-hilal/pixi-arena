@@ -2,7 +2,9 @@
 
 ## Current Architecture
 
-Pixi Arena is currently a frontend-only Vite, TypeScript, and PixiJS browser game. The current implementation includes Home, Playing, and Game Over scenes, player movement, mobile joystick input, lives, survival scoring, difficulty scaling, and basic feedback.
+Pixi Arena is currently a frontend-only Vite, TypeScript, and PixiJS browser game. The current implementation includes Home, Playing, Game Over, and Multiplayer Menu scenes; player movement; mobile joystick input; lives; survival scoring; difficulty scaling; world bounds; obstacles; and basic feedback.
+
+The multiplayer foundation is partially implemented on the client. Shared constants, shared simulation functions, and shared state types live under `src/shared/`. `Player` and `Enemy` are Pixi view wrappers over shared state. `SocketClient` exists as a thin Socket.IO transport wrapper. No realtime server, LobbyScene, MultiplayerPlayingScene, or MatchResultsScene exists yet.
 
 The current frontend separates engine setup, gameplay data, gameplay logic, scene orchestration, API access, and UI. Each layer should have one clear reason to change.
 
@@ -35,7 +37,7 @@ Orchestration units for menu, gameplay, pause, leaderboard, and game over flows.
 
 ### api
 
-Non-realtime product data access such as leaderboard, match history, and player display name persistence.
+Transport and product data access code that stays outside gameplay entities and systems. `SocketClient` is the current realtime transport wrapper. Future non-realtime product operations may include leaderboard, match history, and player display name persistence.
 
 ## Future Client/Server Split
 
@@ -45,7 +47,7 @@ Multiplayer gameplay will use a client/server architecture.
 - The realtime server owns authoritative gameplay state.
 - Firebase stores persistent product data only.
 
-The client should gradually move gameplay rules into a shared simulation layer that has no Pixi dependency. Shared logic may include types, constants, movement rules, collision helpers, and world bounds calculations.
+Gameplay rules that need to run on both client and server are being moved into a shared simulation layer with no Pixi dependency. Shared logic currently includes types, constants, movement, collision, enemy behavior, and damage/winner helpers.
 
 ## Server-Authoritative Multiplayer
 
@@ -90,3 +92,11 @@ Frontend and backend environments should both be treated as explicit deployment 
 The frontend game loop keeps update and render responsibilities separate. Update work advances state using elapsed time. Render work reflects the latest state through Pixi display objects.
 
 In multiplayer, the frontend update loop should also process server snapshots and interpolation while avoiding ownership of authoritative gameplay outcomes.
+
+## Current Next Step
+
+Implement Phase F, LobbyScene with lobby state rendering, host controls, leave flow, countdown, and match started subscription.
+
+## Current Risk
+
+The frontend now emits lobby events but no realtime server exists yet, so create/join cannot complete against a real backend until Phase I or a temporary mock server exists.
