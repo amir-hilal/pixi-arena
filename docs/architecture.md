@@ -30,6 +30,8 @@ Logic that operates on entities, such as movement, collision, spawning, scoring,
 
 Orchestration units for menu, gameplay, pause, and game over flows. Scenes decide which systems run and which entities are active.
 
+Introduce the first gameplay scene before adding multiple gameplay systems. Until then, `Game` may own minimal composition for the current foundation only.
+
 ## Game Loop
 
 The game loop should keep update and render responsibilities separate. Update work advances state using elapsed time. Render work reflects the latest state through Pixi display objects. This separation makes performance issues easier to isolate and gameplay behavior easier to test.
