@@ -1,14 +1,18 @@
-import { Graphics, Text } from 'pixi.js';
+import { Container, Graphics, Text } from 'pixi.js';
 import { ENEMY_RADIUS } from '../../shared/constants/enemy';
 import { PLAYER_RADIUS } from '../../shared/constants/player';
-import { WORLD_WIDTH } from '../../shared/constants/world';
 import type {
   EnemyState,
   MatchSnapshot,
   PlayerState,
 } from '../../shared/types/index';
-import type { InputManager } from '../core/InputManager';
+import { Camera } from '../core/Camera';
+import type { InputDirection, InputManager } from '../core/InputManager';
 import type { Renderer } from '../core/Renderer';
+import { ObstacleSystem } from '../systems/ObstacleSystem';
+import { GroundBackground } from '../ui/GroundBackground';
+import { VirtualJoystick } from '../ui/VirtualJoystick';
+import { WorldBoundary } from '../ui/WorldBoundary';
 import type {
   LobbyStatePayload,
   MatchFinishedPayload,
@@ -20,22 +24,47 @@ import type { Scene } from './Scene';
 
 const LOCAL_PLAYER_COLOR = 0x4fd1c5;
 const REMOTE_PLAYER_COLOR = 0xfacc15;
+const ELIMINATED_PLAYER_COLOR = 0x64748b;
 const ENEMY_COLOR = 0xf56565;
 const TEXT_COLOR = 0xffffff;
 const MUTED_TEXT_COLOR = 0xcbd5e1;
 const TITLE_TEXT_SIZE = 18;
 const STATUS_TEXT_SIZE = 14;
 const ELIMINATED_TEXT_SIZE = 32;
-const WORLD_MARGIN = 32;
+const SCORE_TEXT_X = 16;
+const SCORE_TEXT_Y = 12;
+const TIMER_TEXT_X = 16;
+const TIMER_TEXT_Y = 40;
+const LIVES_TEXT_X = 16;
+const LIVES_TEXT_Y = 68;
+const STATUS_TEXT_X = 16;
+const STATUS_TEXT_Y = 96;
+const SECONDS_PER_MINUTE = 60;
+const TIMER_PART_PADDING_LENGTH = 2;
+const TIMER_PART_PADDING_VALUE = '0';
+const DAMAGE_FLASH_DURATION_SECONDS = 0.45;
+const DAMAGED_PLAYER_ALPHA = 0.35;
+const DEFAULT_PLAYER_ALPHA = 1;
+const NEUTRAL_DIRECTION = 0;
 
 export class MultiplayerPlayingScene implements Scene {
+  private readonly camera = new Camera();
+  private readonly obstacleSystem = new ObstacleSystem();
   private readonly playerRenderables = new Map<string, Graphics>();
   private readonly enemyRenderables = new Map<string, Graphics>();
+  private worldContainer: Container | null = null;
+  private ground: GroundBackground | null = null;
+  private boundary: WorldBoundary | null = null;
+  private scoreText: Text | null = null;
+  private timerText: Text | null = null;
+  private livesText: Text | null = null;
   private statusText: Text | null = null;
-  private tickText: Text | null = null;
   private eliminatedText: Text | null = null;
+  private virtualJoystick: VirtualJoystick | null = null;
   private latestSnapshot: MatchSnapshot;
   private latestLobbyState: LobbyStatePayload | null = null;
+  private previousLocalLives: number | null = null;
+  private damageFlashSeconds = 0;
   private matchFinished = false;
 
   public constructor(
@@ -58,20 +87,23 @@ export class MultiplayerPlayingScene implements Scene {
     this.socketClient.on('match:finished', this.handleMatchFinished);
     this.socketClient.on('lobby:state', this.handleLobbyState);
 
-    this.statusText = new Text({
-      style: {
-        fill: TEXT_COLOR,
-        fontSize: TITLE_TEXT_SIZE,
-      },
-      text: 'Multiplayer Match',
-    });
-    this.tickText = new Text({
-      style: {
-        fill: MUTED_TEXT_COLOR,
-        fontSize: STATUS_TEXT_SIZE,
-      },
-      text: '',
-    });
+    this.worldContainer = new Container();
+    this.renderer.addToStage(this.worldContainer);
+
+    this.ground = new GroundBackground();
+    this.worldContainer.addChild(this.ground.renderable);
+
+    this.boundary = new WorldBoundary();
+    this.worldContainer.addChild(this.boundary.renderable);
+
+    for (const obstacle of this.obstacleSystem.initialize()) {
+      this.worldContainer.addChild(obstacle.renderable);
+    }
+
+    this.scoreText = this.createScreenText('', TITLE_TEXT_SIZE);
+    this.timerText = this.createScreenText('', TITLE_TEXT_SIZE);
+    this.livesText = this.createScreenText('', TITLE_TEXT_SIZE);
+    this.statusText = this.createScreenText('', STATUS_TEXT_SIZE, MUTED_TEXT_COLOR);
     this.eliminatedText = new Text({
       anchor: 0.5,
       style: {
@@ -83,18 +115,24 @@ export class MultiplayerPlayingScene implements Scene {
     });
     this.eliminatedText.visible = false;
 
+    this.renderer.addToStage(this.scoreText);
+    this.renderer.addToStage(this.timerText);
+    this.renderer.addToStage(this.livesText);
     this.renderer.addToStage(this.statusText);
-    this.renderer.addToStage(this.tickText);
     this.renderer.addToStage(this.eliminatedText);
+    this.initializeVirtualJoystick();
     this.renderSnapshot();
+    this.resizeViewportUi();
   }
 
-  public update(_deltaSeconds: number): void {
+  public update(deltaSeconds: number): void {
+    this.updateDamageFeedback(deltaSeconds);
+
     if (this.matchFinished || this.isLocalPlayerEliminated()) {
       return;
     }
 
-    const direction = this.inputManager.getMovementDirection();
+    const direction = this.getMovementDirection();
 
     this.socketClient.emit('player:input', {
       dx: direction.x,
@@ -102,12 +140,13 @@ export class MultiplayerPlayingScene implements Scene {
     });
   }
 
-  public resize(width: number, _height: number): void {
-    this.statusText?.position.set(WORLD_MARGIN, WORLD_MARGIN);
-    this.tickText?.position.set(WORLD_MARGIN, WORLD_MARGIN + 26);
-    this.eliminatedText?.position.set(width / 2, WORLD_MARGIN + 120);
-    this.renderPlayers(width);
-    this.renderEnemies(width);
+  public resize(width: number, height: number): void {
+    this.scoreText?.position.set(SCORE_TEXT_X, SCORE_TEXT_Y);
+    this.timerText?.position.set(TIMER_TEXT_X, TIMER_TEXT_Y);
+    this.livesText?.position.set(LIVES_TEXT_X, LIVES_TEXT_Y);
+    this.statusText?.position.set(STATUS_TEXT_X, STATUS_TEXT_Y);
+    this.eliminatedText?.position.set(width / 2, height * 0.32);
+    this.updateCamera();
   }
 
   public destroy(): void {
@@ -116,29 +155,86 @@ export class MultiplayerPlayingScene implements Scene {
     this.socketClient.off('match:finished', this.handleMatchFinished);
     this.socketClient.off('lobby:state', this.handleLobbyState);
     this.inputManager.destroy();
+    this.destroyVirtualJoystick();
 
-    for (const renderable of this.playerRenderables.values()) {
-      this.renderer.removeFromStage(renderable);
-      renderable.destroy();
-    }
-
-    for (const renderable of this.enemyRenderables.values()) {
-      this.renderer.removeFromStage(renderable);
-      renderable.destroy();
-    }
-
+    this.obstacleSystem.destroy();
     this.playerRenderables.clear();
     this.enemyRenderables.clear();
+
+    if (this.worldContainer !== null) {
+      this.renderer.removeFromStage(this.worldContainer);
+      this.worldContainer.destroy({ children: true });
+      this.worldContainer = null;
+    }
+
+    this.ground = null;
+    this.boundary = null;
+
     this.destroyText(this.eliminatedText);
-    this.destroyText(this.tickText);
     this.destroyText(this.statusText);
+    this.destroyText(this.livesText);
+    this.destroyText(this.timerText);
+    this.destroyText(this.scoreText);
     this.eliminatedText = null;
-    this.tickText = null;
     this.statusText = null;
+    this.livesText = null;
+    this.timerText = null;
+    this.scoreText = null;
+    this.previousLocalLives = null;
+    this.damageFlashSeconds = 0;
+  }
+
+  private createScreenText(text: string, fontSize: number, fill = TEXT_COLOR): Text {
+    return new Text({
+      style: {
+        fill,
+        fontSize,
+      },
+      text,
+    });
+  }
+
+  private resizeViewportUi(): void {
+    const viewport = this.renderer.getViewportSize();
+
+    this.resize(viewport.width, viewport.height);
+  }
+
+  private initializeVirtualJoystick(): void {
+    if (!VirtualJoystick.isSupported()) {
+      return;
+    }
+
+    this.virtualJoystick = new VirtualJoystick();
+    this.renderer.addToStage(this.virtualJoystick.renderable);
+  }
+
+  private destroyVirtualJoystick(): void {
+    if (this.virtualJoystick === null) {
+      return;
+    }
+
+    this.renderer.removeFromStage(this.virtualJoystick.renderable);
+    this.virtualJoystick.destroy();
+    this.virtualJoystick = null;
+  }
+
+  private getMovementDirection(): InputDirection {
+    const keyboardDirection = this.inputManager.getMovementDirection();
+    const joystickDirection = this.virtualJoystick?.getDirection() ?? {
+      x: NEUTRAL_DIRECTION,
+      y: NEUTRAL_DIRECTION,
+    };
+
+    return {
+      x: keyboardDirection.x + joystickDirection.x,
+      y: keyboardDirection.y + joystickDirection.y,
+    };
   }
 
   private readonly handleMatchSnapshot = (snapshot: MatchSnapshot): void => {
     this.latestSnapshot = snapshot;
+    this.updateLocalDamageState();
     this.updateEliminatedOverlayFromSnapshot();
     this.renderSnapshot();
   };
@@ -163,14 +259,12 @@ export class MultiplayerPlayingScene implements Scene {
   };
 
   private renderSnapshot(): void {
-    if (this.tickText !== null) {
-      this.tickText.text = `Tick ${this.latestSnapshot.tick}`;
-    }
-
     this.syncPlayerRenderables();
     this.syncEnemyRenderables();
-    this.renderPlayers(this.renderer.getViewportSize().width);
-    this.renderEnemies(this.renderer.getViewportSize().width);
+    this.renderPlayers();
+    this.renderEnemies();
+    this.updateUi();
+    this.updateCamera();
   }
 
   private syncPlayerRenderables(): void {
@@ -180,7 +274,7 @@ export class MultiplayerPlayingScene implements Scene {
 
     for (const [playerId, renderable] of this.playerRenderables.entries()) {
       if (!snapshotPlayerIds.has(playerId)) {
-        this.renderer.removeFromStage(renderable);
+        this.worldContainer?.removeChild(renderable);
         renderable.destroy();
         this.playerRenderables.delete(playerId);
       }
@@ -188,25 +282,12 @@ export class MultiplayerPlayingScene implements Scene {
 
     for (const player of this.latestSnapshot.players) {
       if (!this.playerRenderables.has(player.id)) {
-        const color =
-          player.id === this.socketClient.getId()
-            ? LOCAL_PLAYER_COLOR
-            : REMOTE_PLAYER_COLOR;
-        const renderable = new Graphics()
-          .circle(0, 0, PLAYER_RADIUS)
-          .fill(color);
+        const renderable = new Graphics();
 
+        this.drawPlayerRenderable(renderable, player);
         this.playerRenderables.set(player.id, renderable);
-        this.renderer.addToStage(renderable);
+        this.worldContainer?.addChild(renderable);
       }
-    }
-  }
-
-  private renderPlayers(viewportWidth: number): void {
-    const scale = this.getWorldScale(viewportWidth);
-
-    for (const player of this.latestSnapshot.players) {
-      this.renderPlayer(player, scale);
     }
   }
 
@@ -217,7 +298,7 @@ export class MultiplayerPlayingScene implements Scene {
 
     for (const [enemyId, renderable] of this.enemyRenderables.entries()) {
       if (!snapshotEnemyIds.has(enemyId)) {
-        this.renderer.removeFromStage(renderable);
+        this.worldContainer?.removeChild(renderable);
         renderable.destroy();
         this.enemyRenderables.delete(enemyId);
       }
@@ -230,51 +311,148 @@ export class MultiplayerPlayingScene implements Scene {
           .fill(ENEMY_COLOR);
 
         this.enemyRenderables.set(enemy.id, renderable);
-        this.renderer.addToStage(renderable);
+        this.worldContainer?.addChild(renderable);
       }
     }
   }
 
-  private renderEnemies(viewportWidth: number): void {
-    const scale = this.getWorldScale(viewportWidth);
-
-    for (const enemy of this.latestSnapshot.enemies) {
-      this.renderEnemy(enemy, scale);
+  private renderPlayers(): void {
+    for (const player of this.latestSnapshot.players) {
+      this.renderPlayer(player);
     }
   }
 
-  private renderPlayer(player: PlayerState, scale: number): void {
+  private renderEnemies(): void {
+    for (const enemy of this.latestSnapshot.enemies) {
+      this.renderEnemy(enemy);
+    }
+  }
+
+  private renderPlayer(player: PlayerState): void {
     const renderable = this.playerRenderables.get(player.id);
 
     if (renderable === undefined) {
       return;
     }
 
-    renderable.position.set(
-      WORLD_MARGIN + player.position.x * scale,
-      WORLD_MARGIN + 64 + player.position.y * scale,
-    );
-    renderable.scale.set(scale);
+    this.drawPlayerRenderable(renderable, player);
+    renderable.position.set(player.position.x, player.position.y);
   }
 
-  private renderEnemy(enemy: EnemyState, scale: number): void {
+  private renderEnemy(enemy: EnemyState): void {
     const renderable = this.enemyRenderables.get(enemy.id);
 
     if (renderable === undefined) {
       return;
     }
 
-    renderable.position.set(
-      WORLD_MARGIN + enemy.position.x * scale,
-      WORLD_MARGIN + 64 + enemy.position.y * scale,
-    );
-    renderable.scale.set(scale);
+    renderable.position.set(enemy.position.x, enemy.position.y);
   }
 
-  private getWorldScale(viewportWidth: number): number {
-    const availableWidth = Math.max(1, viewportWidth - WORLD_MARGIN * 2);
+  private drawPlayerRenderable(renderable: Graphics, player: PlayerState): void {
+    const isLocalPlayer = player.id === this.socketClient.getId();
+    const color = player.isEliminated
+      ? ELIMINATED_PLAYER_COLOR
+      : isLocalPlayer
+        ? LOCAL_PLAYER_COLOR
+        : REMOTE_PLAYER_COLOR;
 
-    return Math.min(1, availableWidth / WORLD_WIDTH);
+    renderable
+      .clear()
+      .circle(0, 0, PLAYER_RADIUS)
+      .fill(color);
+  }
+
+  private updateCamera(): void {
+    const followedPlayer = this.getCameraTargetPlayer();
+
+    if (followedPlayer === null) {
+      return;
+    }
+
+    this.camera.update(followedPlayer.position, this.renderer.getViewportSize());
+    this.worldContainer?.position.set(this.camera.x, this.camera.y);
+  }
+
+  private getCameraTargetPlayer(): PlayerState | null {
+    const localPlayer = this.getLocalPlayer();
+
+    if (localPlayer !== null) {
+      return localPlayer;
+    }
+
+    return this.latestSnapshot.players[0] ?? null;
+  }
+
+  private updateUi(): void {
+    const localPlayer = this.getLocalPlayer();
+
+    if (this.scoreText !== null) {
+      this.scoreText.text = `Score: ${Math.floor(localPlayer?.score ?? 0)}`;
+    }
+
+    if (this.timerText !== null) {
+      this.timerText.text = `Survival Time: ${this.formatSurvivalTime(
+        localPlayer?.survivalTimeSeconds ?? this.latestSnapshot.elapsedSeconds,
+      )}`;
+    }
+
+    if (this.livesText !== null) {
+      this.livesText.text = `Lives: ${localPlayer?.lives ?? '-'}`;
+    }
+
+    if (this.statusText !== null) {
+      this.statusText.text = `Players: ${this.latestSnapshot.players.length}  Enemies: ${this.latestSnapshot.enemies.length}`;
+    }
+  }
+
+  private formatSurvivalTime(totalSeconds: number): string {
+    const wholeSeconds = Math.floor(totalSeconds);
+    const minutes = Math.floor(wholeSeconds / SECONDS_PER_MINUTE);
+    const seconds = wholeSeconds % SECONDS_PER_MINUTE;
+    const formattedMinutes = minutes.toString().padStart(
+      TIMER_PART_PADDING_LENGTH,
+      TIMER_PART_PADDING_VALUE,
+    );
+    const formattedSeconds = seconds.toString().padStart(
+      TIMER_PART_PADDING_LENGTH,
+      TIMER_PART_PADDING_VALUE,
+    );
+
+    return `${formattedMinutes}:${formattedSeconds}`;
+  }
+
+  private updateLocalDamageState(): void {
+    const localPlayer = this.getLocalPlayer();
+
+    if (localPlayer === null) {
+      return;
+    }
+
+    if (
+      this.previousLocalLives !== null &&
+      localPlayer.lives < this.previousLocalLives
+    ) {
+      this.startDamageFeedback();
+    }
+
+    this.previousLocalLives = localPlayer.lives;
+  }
+
+  private startDamageFeedback(): void {
+    this.damageFlashSeconds = DAMAGE_FLASH_DURATION_SECONDS;
+  }
+
+  private updateDamageFeedback(deltaSeconds: number): void {
+    const localRenderable = this.getLocalPlayerRenderable();
+
+    if (localRenderable === null) {
+      return;
+    }
+
+    this.damageFlashSeconds = Math.max(0, this.damageFlashSeconds - deltaSeconds);
+    localRenderable.alpha =
+      this.damageFlashSeconds > 0 ? DAMAGED_PLAYER_ALPHA : DEFAULT_PLAYER_ALPHA;
   }
 
   private updateEliminatedOverlayFromSnapshot(): void {
@@ -284,12 +462,27 @@ export class MultiplayerPlayingScene implements Scene {
   }
 
   private isLocalPlayerEliminated(): boolean {
-    const socketId = this.socketClient.getId();
-    const localPlayer = this.latestSnapshot.players.find(
-      (player) => player.id === socketId,
-    );
+    return this.getLocalPlayer()?.isEliminated === true;
+  }
 
-    return localPlayer?.isEliminated === true;
+  private getLocalPlayer(): PlayerState | null {
+    const socketId = this.socketClient.getId();
+
+    if (socketId === null) {
+      return null;
+    }
+
+    return this.latestSnapshot.players.find((player) => player.id === socketId) ?? null;
+  }
+
+  private getLocalPlayerRenderable(): Graphics | null {
+    const socketId = this.socketClient.getId();
+
+    if (socketId === null) {
+      return null;
+    }
+
+    return this.playerRenderables.get(socketId) ?? null;
   }
 
   private showEliminatedOverlay(): void {
