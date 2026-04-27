@@ -1,12 +1,13 @@
 import type {
   EnemyState,
   InputState,
+  MatchResult,
   MatchSnapshot,
   MatchState,
   PlayerState,
 } from '../src/shared/types/index.js';
 
-export type LobbyStatus = 'waiting' | 'countdown' | 'playing';
+export type LobbyStatus = 'waiting' | 'countdown' | 'playing' | 'finished';
 
 export interface LobbyPlayer {
   id: string;
@@ -52,6 +53,10 @@ export interface PlayerInputPayload extends InputState {}
 export interface PlayerEliminatedPayload {
   playerId: string;
   rank: number;
+}
+
+export interface MatchFinishedPayload {
+  result: MatchResult;
 }
 
 export interface ServerMatchState extends MatchState {

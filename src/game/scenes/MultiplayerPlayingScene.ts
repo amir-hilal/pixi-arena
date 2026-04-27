@@ -10,6 +10,7 @@ import type {
 import type { InputManager } from '../core/InputManager';
 import type { Renderer } from '../core/Renderer';
 import type {
+  MatchFinishedPayload,
   MatchStartedPayload,
   MultiplayerSocketClient,
   PlayerEliminatedPayload,
@@ -32,7 +33,9 @@ export class MultiplayerPlayingScene implements Scene {
   private statusText: Text | null = null;
   private tickText: Text | null = null;
   private eliminatedText: Text | null = null;
+  private resultText: Text | null = null;
   private latestSnapshot: MatchSnapshot;
+  private matchFinished = false;
 
   public constructor(
     private readonly renderer: Renderer,
@@ -47,6 +50,7 @@ export class MultiplayerPlayingScene implements Scene {
     this.inputManager.initialize();
     this.socketClient.on('match:snapshot', this.handleMatchSnapshot);
     this.socketClient.on('player:eliminated', this.handlePlayerEliminated);
+    this.socketClient.on('match:finished', this.handleMatchFinished);
 
     this.statusText = new Text({
       style: {
@@ -72,15 +76,26 @@ export class MultiplayerPlayingScene implements Scene {
       text: 'Eliminated',
     });
     this.eliminatedText.visible = false;
+    this.resultText = new Text({
+      anchor: 0.5,
+      style: {
+        align: 'center',
+        fill: TEXT_COLOR,
+        fontSize: TITLE_TEXT_SIZE,
+      },
+      text: '',
+    });
+    this.resultText.visible = false;
 
     this.renderer.addToStage(this.statusText);
     this.renderer.addToStage(this.tickText);
     this.renderer.addToStage(this.eliminatedText);
+    this.renderer.addToStage(this.resultText);
     this.renderSnapshot();
   }
 
   public update(_deltaSeconds: number): void {
-    if (this.isLocalPlayerEliminated()) {
+    if (this.matchFinished || this.isLocalPlayerEliminated()) {
       return;
     }
 
@@ -96,6 +111,7 @@ export class MultiplayerPlayingScene implements Scene {
     this.statusText?.position.set(WORLD_MARGIN, WORLD_MARGIN);
     this.tickText?.position.set(WORLD_MARGIN, WORLD_MARGIN + 26);
     this.eliminatedText?.position.set(width / 2, WORLD_MARGIN + 120);
+    this.resultText?.position.set(width / 2, WORLD_MARGIN + 170);
     this.renderPlayers(width);
     this.renderEnemies(width);
   }
@@ -103,6 +119,7 @@ export class MultiplayerPlayingScene implements Scene {
   public destroy(): void {
     this.socketClient.off('match:snapshot', this.handleMatchSnapshot);
     this.socketClient.off('player:eliminated', this.handlePlayerEliminated);
+    this.socketClient.off('match:finished', this.handleMatchFinished);
     this.inputManager.destroy();
 
     for (const renderable of this.playerRenderables.values()) {
@@ -117,9 +134,11 @@ export class MultiplayerPlayingScene implements Scene {
 
     this.playerRenderables.clear();
     this.enemyRenderables.clear();
+    this.destroyText(this.resultText);
     this.destroyText(this.eliminatedText);
     this.destroyText(this.tickText);
     this.destroyText(this.statusText);
+    this.resultText = null;
     this.eliminatedText = null;
     this.tickText = null;
     this.statusText = null;
@@ -137,6 +156,13 @@ export class MultiplayerPlayingScene implements Scene {
     if (elimination.playerId === this.socketClient.getId()) {
       this.showEliminatedOverlay();
     }
+  };
+
+  private readonly handleMatchFinished = (
+    payload: MatchFinishedPayload,
+  ): void => {
+    this.matchFinished = true;
+    this.showMatchFinished(payload);
   };
 
   private renderSnapshot(): void {
@@ -272,6 +298,22 @@ export class MultiplayerPlayingScene implements Scene {
   private showEliminatedOverlay(): void {
     if (this.eliminatedText !== null) {
       this.eliminatedText.visible = true;
+    }
+  }
+
+  private showMatchFinished(payload: MatchFinishedPayload): void {
+    const socketId = this.socketClient.getId();
+    const winnerId = payload.result.winnerId;
+    const message =
+      winnerId === null
+        ? 'Match finished: no winner'
+        : winnerId === socketId
+          ? 'Match finished: you won'
+          : 'Match finished';
+
+    if (this.resultText !== null) {
+      this.resultText.text = message;
+      this.resultText.visible = true;
     }
   }
 

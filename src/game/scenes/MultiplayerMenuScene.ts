@@ -1,6 +1,10 @@
 import { Text } from 'pixi.js';
 import type { SocketClient } from '../../api/SocketClient';
-import type { InputState, MatchSnapshot } from '../../shared/types/index';
+import type {
+  InputState,
+  MatchResult,
+  MatchSnapshot,
+} from '../../shared/types/index';
 import type { AudioManager } from '../core/AudioManager';
 import type { Renderer } from '../core/Renderer';
 import type { Scene } from './Scene';
@@ -15,7 +19,7 @@ export interface LobbyPlayerPayload {
 export interface LobbyStatePayload {
   lobbyCode: string;
   players: LobbyPlayerPayload[];
-  status: 'waiting' | 'countdown' | 'playing';
+  status: 'waiting' | 'countdown' | 'playing' | 'finished';
   maxPlayers: 4;
 }
 
@@ -37,6 +41,10 @@ export interface PlayerEliminatedPayload {
   rank: number;
 }
 
+export interface MatchFinishedPayload {
+  result: MatchResult;
+}
+
 interface MultiplayerIncomingEvents {
   'lobby:state': LobbyStatePayload;
   'lobby:error': LobbyErrorPayload;
@@ -44,6 +52,7 @@ interface MultiplayerIncomingEvents {
   'match:started': MatchStartedPayload;
   'match:snapshot': MatchSnapshot;
   'player:eliminated': PlayerEliminatedPayload;
+  'match:finished': MatchFinishedPayload;
 }
 
 interface MultiplayerOutgoingEvents {

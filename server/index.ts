@@ -26,6 +26,7 @@ import type {
   LobbyJoinPayload,
   LobbyState,
   MatchCountdownPayload,
+  MatchFinishedPayload,
   MatchSnapshotPayload,
   MatchStartedPayload,
   PlayerEliminatedPayload,
@@ -216,8 +217,30 @@ function startMatchCountdown(lobby: LobbyState): void {
       (elimination) => {
         emitPlayerEliminated(playingLobby.lobbyCode, elimination);
       },
+      (finished) => {
+        finishMatch(playingLobby, finished);
+      },
     );
   }, 1000);
+}
+
+function finishMatch(lobby: LobbyState, finished: MatchFinishedPayload): void {
+  const finishedLobby = setLobbyStatus(lobby.lobbyCode, 'finished');
+
+  if (finishedLobby === null) {
+    return;
+  }
+
+  console.log(`match finished: ${lobby.lobbyCode} match=${finished.result.matchId}`);
+  emitLobbyState(finishedLobby);
+  emitMatchFinished(finishedLobby.lobbyCode, finished);
+
+  const resetLobby = setLobbyStatus(finishedLobby.lobbyCode, 'waiting');
+
+  if (resetLobby !== null) {
+    delete resetLobby.match;
+    emitLobbyState(resetLobby);
+  }
 }
 
 function emitLobbyState(lobby: LobbyState): void {
@@ -262,4 +285,11 @@ function emitPlayerEliminated(
   payload: PlayerEliminatedPayload,
 ): void {
   io.to(lobbyCode).emit('player:eliminated', payload);
+}
+
+function emitMatchFinished(
+  lobbyCode: string,
+  payload: MatchFinishedPayload,
+): void {
+  io.to(lobbyCode).emit('match:finished', payload);
 }

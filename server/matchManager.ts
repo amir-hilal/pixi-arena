@@ -3,6 +3,7 @@ import {
   PLAYER_RADIUS,
   PLAYER_SPEED,
 } from '../src/shared/constants/player.js';
+import { POINTS_PER_SECOND } from '../src/shared/constants/simulation.js';
 import {
   ENEMY_RADIUS,
   ENEMY_SPEED,
@@ -27,17 +28,21 @@ import {
 import {
   applyDamage,
   collectEnemyCollisions,
+  computeWinner,
 } from '../src/shared/simulation/damage.js';
 import type {
   EnemyState,
   InputState,
+  MatchResult,
   MatchSnapshot,
+  PlayerResult,
   PlayerState,
   Vector2,
   WorldState,
 } from '../src/shared/types/index.js';
 import type {
   LobbyState,
+  MatchFinishedPayload,
   PlayerEliminatedPayload,
   ServerMatchState,
 } from './types.js';
@@ -69,6 +74,7 @@ const enemyIds = new Map<string, number>();
 interface MatchTickResult {
   snapshot: MatchSnapshot;
   eliminations: PlayerEliminatedPayload[];
+  finished: MatchFinishedPayload | null;
 }
 
 export function initializeMatch(lobby: LobbyState): ServerMatchState {
@@ -95,6 +101,7 @@ export function startMatchLoop(
   lobby: LobbyState,
   onSnapshot: (snapshot: MatchSnapshot) => void,
   onPlayerEliminated: (elimination: PlayerEliminatedPayload) => void,
+  onMatchFinished: (finished: MatchFinishedPayload) => void,
 ): void {
   stopMatchLoop(lobby.lobbyCode);
 
@@ -107,6 +114,11 @@ export function startMatchLoop(
       }
 
       onSnapshot(result.snapshot);
+
+      if (result.finished !== null) {
+        onMatchFinished(result.finished);
+        stopMatchLoop(lobby.lobbyCode);
+      }
     }
   }, TICK_INTERVAL_MS);
 
@@ -169,7 +181,11 @@ export function getMatchSnapshot(
 function stepMatch(lobby: LobbyState): MatchTickResult | null {
   const match = lobby.match;
 
-  if (match === undefined || lobby.status !== 'playing') {
+  if (
+    match === undefined ||
+    lobby.status !== 'playing' ||
+    match.phase !== 'playing'
+  ) {
     return null;
   }
 
@@ -184,6 +200,8 @@ function stepMatch(lobby: LobbyState): MatchTickResult | null {
 
     applyPlayerInput(player, input, TICK_DELTA_SECONDS, PLAYER_SPEED);
     clampPlayerToBounds(player, worldState, PLAYER_RADIUS);
+    player.survivalTimeSeconds += TICK_DELTA_SECONDS;
+    player.score += POINTS_PER_SECOND * TICK_DELTA_SECONDS;
   }
 
   spawnEnemies(lobby, match);
@@ -193,10 +211,12 @@ function stepMatch(lobby: LobbyState): MatchTickResult | null {
 
   match.tick += 1;
   match.elapsedSeconds += TICK_DELTA_SECONDS;
+  const finished = resolveMatchFinished(lobby, match);
 
   return {
     snapshot: getMatchSnapshot(match),
     eliminations,
+    finished,
   };
 }
 
@@ -295,6 +315,62 @@ function resolveEnemyCollisions(
 
 function getEliminationRank(players: readonly PlayerState[]): number {
   return players.filter((player) => !player.isEliminated).length + 1;
+}
+
+function resolveMatchFinished(
+  lobby: LobbyState,
+  match: ServerMatchState,
+): MatchFinishedPayload | null {
+  const activePlayers = match.players.filter((player) => !player.isEliminated);
+
+  if (activePlayers.length > 1) {
+    return null;
+  }
+
+  match.phase = 'finished';
+
+  return {
+    result: createMatchResult(lobby, match),
+  };
+}
+
+function createMatchResult(
+  lobby: LobbyState,
+  match: ServerMatchState,
+): MatchResult {
+  const winner = computeWinner(match.players);
+
+  return {
+    matchId: match.matchId,
+    winnerId: winner?.id ?? null,
+    players: createPlayerResults(lobby, match),
+    durationSeconds: match.elapsedSeconds,
+  };
+}
+
+function createPlayerResults(
+  lobby: LobbyState,
+  match: ServerMatchState,
+): PlayerResult[] {
+  const playerNames = new Map(
+    lobby.players.map((player) => [player.id, player.name]),
+  );
+  const orderedPlayers = [...match.players].sort((a, b) => {
+    if (a.isEliminated !== b.isEliminated) {
+      return a.isEliminated ? 1 : -1;
+    }
+
+    return b.survivalTimeSeconds - a.survivalTimeSeconds;
+  });
+
+  // Same-tick eliminations keep lobby insertion order after equal survival times.
+  return orderedPlayers.map((player, index) => ({
+    id: player.id,
+    name: playerNames.get(player.id) ?? 'Player',
+    rank: index + 1,
+    survivalTimeSeconds: player.survivalTimeSeconds,
+    score: Math.floor(player.score),
+  }));
 }
 
 function getFirstActivePlayer(players: readonly PlayerState[]): PlayerState | null {
