@@ -57,7 +57,7 @@
 - [x] Phase I.2 — Add server-owned enemies and enemy snapshots
 - [x] Phase I.3 — Add server-owned damage/collisions and eliminations
 - [x] Phase I.4 — Add winner/game over logic, `match:finished`, survival scoring, and deterministic result ranking
-- [ ] Phase H — Add MatchResultsScene/results UI
+- [x] Phase H — Add MatchResultsScene/results UI
 - [ ] Phase G — Expand client gameplay rendering from authoritative server snapshots
 
 ## Firebase Persistence
@@ -88,19 +88,35 @@ The goal remains interview-ready production quality over feature quantity. Authe
 
 - Lobby flow is fully functional using the local Socket.IO server
 - Client is fully server-state-driven via `lobby:state`
-- Scene transitions work: MultiplayerMenu → Lobby → MultiplayerPlaying
+- Full multiplayer MVP loop exists: MultiplayerMenu → Lobby → MultiplayerPlaying → MatchResults
 - Server owns match state, movement, enemies, damage, eliminations, winner detection, survival scoring, and `match:finished`
-- MultiplayerPlayingScene renders players/enemies from `match:snapshot` and shows only a minimal match-finished placeholder
+- MultiplayerPlayingScene renders players/enemies from `match:snapshot` and transitions to MatchResultsScene on `match:finished`
+- MatchResultsScene shows winner/no winner, ranked players, survival time, score, local player marker, Back to Lobby, and Home
+- Back to Lobby uses server `lobby:state`; Home emits `lobby:leave`
 - Same-tick eliminations use one deterministic ranking policy: survival time first, then lobby/player insertion order
 - Solo lobby start remains dev-only behavior for local testing
-- No polished MatchResultsScene, interpolation, Firebase, leaderboard, or persistence exists yet
+- No interpolation, Firebase, leaderboard, or persistence exists yet
 - Match state is currently stored inside internal lobby state and may later be separated from public lobby payloads
 
 ## Current Next Step
 
-Implement MatchResultsScene and transition from MultiplayerPlayingScene.
+Run full two-tab multiplayer QA and fix any discovered bugs.
 
 ## Current Risk
 
-The server now emits `match:finished`, but the client only shows a placeholder.
-MatchResultsScene, rematch/back-to-lobby UX, Firebase persistence, leaderboard, and production deployment are still pending.
+The full local multiplayer MVP loop exists, but it still needs a complete two-tab QA pass.
+Firebase persistence, leaderboard, interpolation, and production deployment are still pending.
+
+## Manual QA Checklist
+
+- [ ] Create lobby
+- [ ] Join from second tab
+- [ ] Host reassignment
+- [ ] Start match
+- [ ] Player movement sync
+- [ ] Enemy sync
+- [ ] Damage/elimination
+- [ ] Match finish
+- [ ] Results scene
+- [ ] Back to lobby
+- [ ] Home leave

@@ -4,9 +4,9 @@
 
 This roadmap is a high-level product roadmap. For multiplayer implementation details, `docs/multiplayer-implementation-plan.md` is authoritative.
 
-Single-player stabilization, world/camera work, shared simulation extraction, entity state/view wrappers, SocketClient, the Home/Multiplayer menu split, the local Socket.IO server, LobbyScene, and Phase I.4 authoritative match lifecycle are complete. The current next step is to implement MatchResultsScene and transition from MultiplayerPlayingScene.
+Single-player stabilization, world/camera work, shared simulation extraction, entity state/view wrappers, SocketClient, the Home/Multiplayer menu split, the local Socket.IO server, LobbyScene, Phase I.4 authoritative match lifecycle, and MatchResultsScene are complete. The current next step is to run full two-tab multiplayer QA and fix any discovered bugs.
 
-Current risk: the server now emits `match:finished`, but the client only shows a placeholder. MatchResultsScene, rematch/back-to-lobby UX, Firebase persistence, leaderboard, and production deployment are still pending.
+Current risk: the full local multiplayer MVP loop exists, but it still needs a complete two-tab QA pass. Firebase persistence, leaderboard, interpolation, and production deployment are still pending.
 
 ## Phase 1: Current Single-Player Stabilization
 
@@ -90,7 +90,8 @@ Acceptance criteria:
 - Up to 4 clients can join the same lobby.
 - Lobby state is consistent after joins/leaves.
 - Clients can leave and return to the multiplayer menu without stale lobby listeners.
-- Match start reaches the MultiplayerPlayingScene placeholder.
+- Match start reaches MultiplayerPlayingScene.
+- Match finish reaches MatchResultsScene.
 
 Risks:
 

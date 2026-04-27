@@ -4,7 +4,7 @@
 
 Pixi Arena is currently a Vite, TypeScript, and PixiJS browser game with a local Socket.IO server for multiplayer lobby and authoritative movement development. The current implementation includes Home, Playing, Game Over, Multiplayer Menu, Lobby, and Multiplayer Playing scenes; player movement; mobile joystick input; lives; survival scoring; difficulty scaling; world bounds; obstacles; and basic feedback.
 
-The multiplayer foundation is implemented through the lobby flow and server-authoritative match simulation. Shared constants, shared simulation functions, and shared state types live under `src/shared/`. `Player` and `Enemy` are Pixi view wrappers over shared state. `SocketClient` exists as a thin Socket.IO transport wrapper. The server supports lobby create, join, leave, host reassignment, countdown, `match:started`, player input, movement, enemies, damage, eliminations, winner detection, survival scoring, `match:snapshot`, and `match:finished`; polished MatchResultsScene UI, Firebase, leaderboard, interpolation, and persistence are not implemented yet.
+The multiplayer foundation is implemented through the lobby flow and server-authoritative match simulation. Shared constants, shared simulation functions, and shared state types live under `src/shared/`. `Player` and `Enemy` are Pixi view wrappers over shared state. `SocketClient` exists as a thin Socket.IO transport wrapper. The local multiplayer MVP loop now runs from MultiplayerMenu to Lobby to MultiplayerPlaying to MatchResults. Firebase, leaderboard, interpolation, and persistence are not implemented yet.
 
 The current frontend separates engine setup, gameplay data, gameplay logic, scene orchestration, API access, and UI. Each layer should have one clear reason to change.
 
@@ -95,9 +95,9 @@ In multiplayer, the frontend update loop should also process server snapshots an
 
 ## Current Next Step
 
-Implement MatchResultsScene and transition from MultiplayerPlayingScene.
+Run full two-tab multiplayer QA and fix any discovered bugs.
 
 ## Current Risk
 
-The server now emits `match:finished`, but the client only shows a placeholder.
-MatchResultsScene, rematch/back-to-lobby UX, Firebase persistence, leaderboard, and production deployment are still pending.
+The full local multiplayer MVP loop exists, but it still needs a complete two-tab QA pass.
+Firebase persistence, leaderboard, interpolation, and production deployment are still pending.

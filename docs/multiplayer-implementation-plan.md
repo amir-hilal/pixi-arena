@@ -30,30 +30,33 @@ Phases A through F and Phase I.4 are complete:
 - `MultiplayerMenuScene` stores display name, shows Create Lobby / Join Lobby / Back, connects through `Game.ts`, and transitions to `LobbyScene` on `lobby:state`.
 - `server/` owns lobby state, match state, player input, movement, enemies, damage, eliminations, winner detection, survival scoring, `match:snapshot`, and `match:finished`.
 - `LobbyScene` renders from server `lobby:state`, supports host start, leave, countdown, errors, and transitions to `MultiplayerPlayingScene`.
-- `MultiplayerPlayingScene` sends input, renders players/enemies from `match:snapshot`, stops input after elimination/finish, and shows a minimal match-finished placeholder.
+- `MultiplayerPlayingScene` sends input, renders players/enemies from `match:snapshot`, stops input after elimination/finish, and transitions to `MatchResultsScene` on `match:finished`.
+- `MatchResultsScene` shows winner/no winner, ranked players, survival time, score, local player marker, Back to Lobby, and Home.
 - Same-tick eliminations use one deterministic ranking policy: survival time first, then lobby/player insertion order.
-- Polished MatchResultsScene/results UI, interpolation, Firebase, leaderboard, and persistence do not exist yet.
+- Interpolation, Firebase, leaderboard, and persistence do not exist yet.
 
 ## Current Multiplayer State
 
 - Lobby flow is fully functional using the local Socket.IO server.
 - Client is fully server-state-driven via `lobby:state`.
-- Scene transitions work: MultiplayerMenu → Lobby → MultiplayerPlaying.
+- Full multiplayer MVP loop exists: MultiplayerMenu → Lobby → MultiplayerPlaying → MatchResults.
 - Server owns match state, movement, enemies, damage, eliminations, winner detection, survival scoring, and `match:finished`.
-- MultiplayerPlayingScene renders players/enemies from `match:snapshot` and shows only a minimal match-finished placeholder.
+- MultiplayerPlayingScene renders players/enemies from `match:snapshot` and transitions to MatchResultsScene on `match:finished`.
+- MatchResultsScene shows winner/no winner, ranked players, survival time, score, local player marker, Back to Lobby, and Home.
+- Back to Lobby uses server `lobby:state`; Home emits `lobby:leave`.
 - Same-tick eliminations use one deterministic ranking policy: survival time first, then lobby/player insertion order.
 - Solo lobby start remains dev-only behavior for local testing.
-- No polished MatchResultsScene, interpolation, Firebase, leaderboard, or persistence exists yet.
+- No interpolation, Firebase, leaderboard, or persistence exists yet.
 - Match state is currently stored inside internal lobby state and may later be separated from public lobby payloads.
 
 ## Current Next Step
 
-Implement MatchResultsScene and transition from MultiplayerPlayingScene.
+Run full two-tab multiplayer QA and fix any discovered bugs.
 
 ## Current Risk
 
-The server now emits `match:finished`, but the client only shows a placeholder.
-MatchResultsScene, rematch/back-to-lobby UX, Firebase persistence, leaderboard, and production deployment are still pending.
+The full local multiplayer MVP loop exists, but it still needs a complete two-tab QA pass.
+Firebase persistence, leaderboard, interpolation, and production deployment are still pending.
 
 ---
 
@@ -92,10 +95,10 @@ MatchResultsScene
 | `src/api/SocketClient.ts` | Typed Socket.IO client wrapper — complete |
 | `src/game/scenes/MultiplayerMenuScene.ts` | Display name input, Create / Join UI — complete |
 | `src/game/scenes/LobbyScene.ts` | Player list, host controls, leave button — complete |
-| `src/game/scenes/MultiplayerPlayingScene.ts` | Sends input, renders players/enemies from `match:snapshot`, and shows minimal match-finished placeholder |
-| `src/game/scenes/MatchResultsScene.ts` | Ranked results, back to lobby / home — pending |
+| `src/game/scenes/MultiplayerPlayingScene.ts` | Sends input, renders players/enemies from `match:snapshot`, and transitions to MatchResultsScene |
+| `src/game/scenes/MatchResultsScene.ts` | Ranked results, back to lobby / home — complete |
 | `src/shared/` | Constants, types, simulation (see Part 2) — complete |
-| `server/` | Authoritative movement, enemies, damage, eliminations, winner detection, and `match:finished` complete; results UI/persistence pending |
+| `server/` | Authoritative movement, enemies, damage, eliminations, winner detection, and `match:finished` complete; persistence pending |
 
 **Modified existing files:**
 - `src/game/scenes/HomeScene.ts` — Single Player / Multiplayer mode buttons complete
@@ -597,7 +600,7 @@ interface LobbyState {
 2. ✅ Shows lobby code, player list, host indicator, and player count.
 3. ✅ Host sees Start Match; all players see Leave.
 4. ✅ On `match:countdown`, displays `{ secondsRemaining }`.
-5. ✅ On `match:started`, navigates to `MultiplayerPlayingScene` placeholder.
+5. ✅ On `match:started`, navigates to `MultiplayerPlayingScene`.
 6. ✅ Inline `lobby:error` display.
 7. ✅ Subscribes to `lobby:state`, `lobby:error`, `match:countdown`, `match:started` in `initialize()` and unsubscribes in `destroy()`.
 
@@ -631,15 +634,29 @@ Solo lobby start remains dev-only behavior for local testing. Production should 
 4. Enemies rendered from `match:snapshot.enemies`.
 5. Each frame: read local `InputState` from `InputManager`/`VirtualJoystick`; emit `player:input`.
 6. On `player:eliminated` for local player: show elimination overlay.
-7. On `match:finished`: currently shows a minimal placeholder; next step is transition to `MatchResultsScene`.
+7. On `match:finished`: navigate to `MatchResultsScene`.
 8. No client-side movement prediction in v1 — local player position comes from server snapshots only.
 
-### Phase H — MatchResultsScene ← CURRENT NEXT PHASE
+### Phase H — MatchResultsScene ✅ COMPLETE
 
-1. Display ranked player results from `MatchResult.players` (sorted by `rank`).
-2. Highlight winner row.
-3. "Back to Lobby" button → navigate to `LobbyScene` (server already reset status to `waiting`).
-4. "Home" button → emit `lobby:leave`; navigate to `HomeScene`.
+1. ✅ Display ranked player results from `MatchResult.players` (sorted by `rank`).
+2. ✅ Show winner/no winner and local player marker.
+3. ✅ "Back to Lobby" button → navigate to `LobbyScene` using server `lobby:state`.
+4. ✅ "Home" button → emit `lobby:leave`; navigate to `HomeScene`.
+
+### Current Manual QA Checklist
+
+1. Create lobby.
+2. Join from second tab.
+3. Verify host reassignment.
+4. Start match.
+5. Verify player movement sync.
+6. Verify enemy sync.
+7. Verify damage/elimination.
+8. Verify match finish.
+9. Verify results scene.
+10. Verify Back to Lobby.
+11. Verify Home leave.
 
 ---
 
