@@ -1,18 +1,15 @@
-import { Container, Graphics, Text } from 'pixi.js';
-import { ENEMY_RADIUS } from '../../shared/constants/enemy';
-import { PLAYER_RADIUS } from '../../shared/constants/player';
+import { Graphics, Text } from 'pixi.js';
+import { ENEMY_RADIUS } from '../../../shared/constants/enemy';
+import { PLAYER_RADIUS } from '../../../shared/constants/player';
 import type {
   EnemyState,
   MatchSnapshot,
   PlayerState,
-} from '../../shared/types/index';
-import { Camera } from '../core/Camera';
-import type { InputDirection, InputManager } from '../core/InputManager';
-import type { Renderer } from '../core/Renderer';
-import { ObstacleSystem } from '../systems/ObstacleSystem';
-import { GroundBackground } from '../ui/GroundBackground';
-import { VirtualJoystick } from '../ui/VirtualJoystick';
-import { WorldBoundary } from '../ui/WorldBoundary';
+} from '../../../shared/types/index';
+import { Camera } from '../../core/Camera';
+import type { InputDirection, InputManager } from '../../core/InputManager';
+import type { Renderer } from '../../core/Renderer';
+import { VirtualJoystick } from '../../ui/VirtualJoystick';
 import type {
   LobbyStatePayload,
   MatchFinishedPayload,
@@ -20,13 +17,21 @@ import type {
   MultiplayerSocketClient,
   PlayerEliminatedPayload,
 } from './MultiplayerMenuScene';
-import type { Scene } from './Scene';
+import type { Scene } from '../common/Scene';
+import {
+  createSceneText,
+  destroySceneText,
+} from '../common/createSceneText';
+import {
+  createWorldView,
+  destroyWorldView,
+  type WorldView,
+} from '../common/createWorldView';
 
 const LOCAL_PLAYER_COLOR = 0x4fd1c5;
 const REMOTE_PLAYER_COLOR = 0xfacc15;
 const ELIMINATED_PLAYER_COLOR = 0x64748b;
 const ENEMY_COLOR = 0xf56565;
-const TEXT_COLOR = 0xffffff;
 const MUTED_TEXT_COLOR = 0xcbd5e1;
 const TITLE_TEXT_SIZE = 18;
 const STATUS_TEXT_SIZE = 14;
@@ -43,18 +48,18 @@ const SECONDS_PER_MINUTE = 60;
 const TIMER_PART_PADDING_LENGTH = 2;
 const TIMER_PART_PADDING_VALUE = '0';
 const DAMAGE_FLASH_DURATION_SECONDS = 0.45;
+const DAMAGE_SHAKE_DURATION_SECONDS = 0.28;
 const DAMAGED_PLAYER_ALPHA = 0.35;
 const DEFAULT_PLAYER_ALPHA = 1;
+const DAMAGE_SHAKE_INTENSITY = 8;
+const DAMAGE_SHAKE_FREQUENCY = 70;
 const NEUTRAL_DIRECTION = 0;
 
 export class MultiplayerPlayingScene implements Scene {
   private readonly camera = new Camera();
-  private readonly obstacleSystem = new ObstacleSystem();
   private readonly playerRenderables = new Map<string, Graphics>();
   private readonly enemyRenderables = new Map<string, Graphics>();
-  private worldContainer: Container | null = null;
-  private ground: GroundBackground | null = null;
-  private boundary: WorldBoundary | null = null;
+  private worldView: WorldView | null = null;
   private scoreText: Text | null = null;
   private timerText: Text | null = null;
   private livesText: Text | null = null;
@@ -65,6 +70,9 @@ export class MultiplayerPlayingScene implements Scene {
   private latestLobbyState: LobbyStatePayload | null = null;
   private previousLocalLives: number | null = null;
   private damageFlashSeconds = 0;
+  private damageShakeSeconds = 0;
+  private shakeOffsetX = 0;
+  private shakeOffsetY = 0;
   private matchFinished = false;
 
   public constructor(
@@ -87,30 +95,21 @@ export class MultiplayerPlayingScene implements Scene {
     this.socketClient.on('match:finished', this.handleMatchFinished);
     this.socketClient.on('lobby:state', this.handleLobbyState);
 
-    this.worldContainer = new Container();
-    this.renderer.addToStage(this.worldContainer);
+    this.worldView = createWorldView(this.renderer);
 
-    this.ground = new GroundBackground();
-    this.worldContainer.addChild(this.ground.renderable);
-
-    this.boundary = new WorldBoundary();
-    this.worldContainer.addChild(this.boundary.renderable);
-
-    for (const obstacle of this.obstacleSystem.initialize()) {
-      this.worldContainer.addChild(obstacle.renderable);
-    }
-
-    this.scoreText = this.createScreenText('', TITLE_TEXT_SIZE);
-    this.timerText = this.createScreenText('', TITLE_TEXT_SIZE);
-    this.livesText = this.createScreenText('', TITLE_TEXT_SIZE);
-    this.statusText = this.createScreenText('', STATUS_TEXT_SIZE, MUTED_TEXT_COLOR);
-    this.eliminatedText = new Text({
+    this.scoreText = createSceneText({ fontSize: TITLE_TEXT_SIZE, text: '' });
+    this.timerText = createSceneText({ fontSize: TITLE_TEXT_SIZE, text: '' });
+    this.livesText = createSceneText({ fontSize: TITLE_TEXT_SIZE, text: '' });
+    this.statusText = createSceneText({
+      fill: MUTED_TEXT_COLOR,
+      fontSize: STATUS_TEXT_SIZE,
+      text: '',
+    });
+    this.eliminatedText = createSceneText({
+      align: 'center',
       anchor: 0.5,
-      style: {
-        align: 'center',
-        fill: 0xfca5a5,
-        fontSize: ELIMINATED_TEXT_SIZE,
-      },
+      fill: 0xfca5a5,
+      fontSize: ELIMINATED_TEXT_SIZE,
       text: 'Eliminated',
     });
     this.eliminatedText.visible = false;
@@ -157,24 +156,16 @@ export class MultiplayerPlayingScene implements Scene {
     this.inputManager.destroy();
     this.destroyVirtualJoystick();
 
-    this.obstacleSystem.destroy();
     this.playerRenderables.clear();
     this.enemyRenderables.clear();
+    destroyWorldView(this.renderer, this.worldView);
+    this.worldView = null;
 
-    if (this.worldContainer !== null) {
-      this.renderer.removeFromStage(this.worldContainer);
-      this.worldContainer.destroy({ children: true });
-      this.worldContainer = null;
-    }
-
-    this.ground = null;
-    this.boundary = null;
-
-    this.destroyText(this.eliminatedText);
-    this.destroyText(this.statusText);
-    this.destroyText(this.livesText);
-    this.destroyText(this.timerText);
-    this.destroyText(this.scoreText);
+    destroySceneText(this.renderer, this.eliminatedText);
+    destroySceneText(this.renderer, this.statusText);
+    destroySceneText(this.renderer, this.livesText);
+    destroySceneText(this.renderer, this.timerText);
+    destroySceneText(this.renderer, this.scoreText);
     this.eliminatedText = null;
     this.statusText = null;
     this.livesText = null;
@@ -182,16 +173,9 @@ export class MultiplayerPlayingScene implements Scene {
     this.scoreText = null;
     this.previousLocalLives = null;
     this.damageFlashSeconds = 0;
-  }
-
-  private createScreenText(text: string, fontSize: number, fill = TEXT_COLOR): Text {
-    return new Text({
-      style: {
-        fill,
-        fontSize,
-      },
-      text,
-    });
+    this.damageShakeSeconds = 0;
+    this.shakeOffsetX = 0;
+    this.shakeOffsetY = 0;
   }
 
   private resizeViewportUi(): void {
@@ -274,7 +258,7 @@ export class MultiplayerPlayingScene implements Scene {
 
     for (const [playerId, renderable] of this.playerRenderables.entries()) {
       if (!snapshotPlayerIds.has(playerId)) {
-        this.worldContainer?.removeChild(renderable);
+        this.worldView?.container.removeChild(renderable);
         renderable.destroy();
         this.playerRenderables.delete(playerId);
       }
@@ -286,7 +270,7 @@ export class MultiplayerPlayingScene implements Scene {
 
         this.drawPlayerRenderable(renderable, player);
         this.playerRenderables.set(player.id, renderable);
-        this.worldContainer?.addChild(renderable);
+        this.worldView?.container.addChild(renderable);
       }
     }
   }
@@ -298,7 +282,7 @@ export class MultiplayerPlayingScene implements Scene {
 
     for (const [enemyId, renderable] of this.enemyRenderables.entries()) {
       if (!snapshotEnemyIds.has(enemyId)) {
-        this.worldContainer?.removeChild(renderable);
+        this.worldView?.container.removeChild(renderable);
         renderable.destroy();
         this.enemyRenderables.delete(enemyId);
       }
@@ -311,7 +295,7 @@ export class MultiplayerPlayingScene implements Scene {
           .fill(ENEMY_COLOR);
 
         this.enemyRenderables.set(enemy.id, renderable);
-        this.worldContainer?.addChild(renderable);
+        this.worldView?.container.addChild(renderable);
       }
     }
   }
@@ -371,7 +355,7 @@ export class MultiplayerPlayingScene implements Scene {
     }
 
     this.camera.update(followedPlayer.position, this.renderer.getViewportSize());
-    this.worldContainer?.position.set(this.camera.x, this.camera.y);
+    this.syncWorldContainerPosition();
   }
 
   private getCameraTargetPlayer(): PlayerState | null {
@@ -441,9 +425,15 @@ export class MultiplayerPlayingScene implements Scene {
 
   private startDamageFeedback(): void {
     this.damageFlashSeconds = DAMAGE_FLASH_DURATION_SECONDS;
+    this.damageShakeSeconds = DAMAGE_SHAKE_DURATION_SECONDS;
   }
 
   private updateDamageFeedback(deltaSeconds: number): void {
+    this.updatePlayerFlash(deltaSeconds);
+    this.updateStageShake(deltaSeconds);
+  }
+
+  private updatePlayerFlash(deltaSeconds: number): void {
     const localRenderable = this.getLocalPlayerRenderable();
 
     if (localRenderable === null) {
@@ -453,6 +443,34 @@ export class MultiplayerPlayingScene implements Scene {
     this.damageFlashSeconds = Math.max(0, this.damageFlashSeconds - deltaSeconds);
     localRenderable.alpha =
       this.damageFlashSeconds > 0 ? DAMAGED_PLAYER_ALPHA : DEFAULT_PLAYER_ALPHA;
+  }
+
+  private updateStageShake(deltaSeconds: number): void {
+    if (this.damageShakeSeconds <= 0) {
+      return;
+    }
+
+    this.damageShakeSeconds = Math.max(0, this.damageShakeSeconds - deltaSeconds);
+
+    if (this.damageShakeSeconds === 0) {
+      this.shakeOffsetX = 0;
+      this.shakeOffsetY = 0;
+      this.syncWorldContainerPosition();
+      return;
+    }
+
+    const shakeProgress = this.damageShakeSeconds * DAMAGE_SHAKE_FREQUENCY;
+
+    this.shakeOffsetX = Math.sin(shakeProgress) * DAMAGE_SHAKE_INTENSITY;
+    this.shakeOffsetY = Math.cos(shakeProgress) * DAMAGE_SHAKE_INTENSITY;
+    this.syncWorldContainerPosition();
+  }
+
+  private syncWorldContainerPosition(): void {
+    this.worldView?.container.position.set(
+      this.camera.x + this.shakeOffsetX,
+      this.camera.y + this.shakeOffsetY,
+    );
   }
 
   private updateEliminatedOverlayFromSnapshot(): void {
@@ -491,12 +509,4 @@ export class MultiplayerPlayingScene implements Scene {
     }
   }
 
-  private destroyText(text: Text | null): void {
-    if (text === null) {
-      return;
-    }
-
-    this.renderer.removeFromStage(text);
-    text.destroy();
-  }
 }

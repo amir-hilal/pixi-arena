@@ -1,6 +1,6 @@
 import { Text } from 'pixi.js';
-import type { AudioManager } from '../core/AudioManager';
-import type { Renderer } from '../core/Renderer';
+import type { AudioManager } from '../../core/AudioManager';
+import type { Renderer } from '../../core/Renderer';
 import type {
   LobbyErrorPayload,
   LobbyStatePayload,
@@ -8,7 +8,7 @@ import type {
   MatchStartedPayload,
   MultiplayerSocketClient,
 } from './MultiplayerMenuScene';
-import type { Scene } from './Scene';
+import type { Scene } from '../common/Scene';
 
 const TITLE_TEXT = 'Lobby';
 const START_MATCH_TEXT = 'Start Match';
@@ -30,7 +30,7 @@ const MUTED_TEXT_COLOR = 0xcbd5e1;
 const ERROR_TEXT_COLOR = 0xfca5a5;
 const COUNTDOWN_TEXT_COLOR = 0xfacc15;
 
-export class LobbyScene implements Scene {
+export class MultiplayerLobbyScene implements Scene {
   private titleText: Text | null = null;
   private lobbyCodeText: Text | null = null;
   private playerCountText: Text | null = null;

@@ -1,18 +1,18 @@
 import { SocketClient } from '../../api/SocketClient';
-import { GameOverScene } from '../scenes/GameOverScene';
 import { HomeScene } from '../scenes/HomeScene';
-import { LobbyScene } from '../scenes/LobbyScene';
-import { MatchResultsScene } from '../scenes/MatchResultsScene';
+import { SceneManager } from '../scenes/common/SceneManager';
+import { MultiplayerLobbyScene } from '../scenes/multiplayer/MultiplayerLobbyScene';
+import { MultiplayerMatchResultsScene } from '../scenes/multiplayer/MultiplayerMatchResultsScene';
 import {
   MultiplayerMenuScene,
   type LobbyStatePayload,
   type MatchFinishedPayload,
   type MatchStartedPayload,
   type MultiplayerSocketClient,
-} from '../scenes/MultiplayerMenuScene';
-import { MultiplayerPlayingScene } from '../scenes/MultiplayerPlayingScene';
-import { PlayingScene } from '../scenes/PlayingScene';
-import { SceneManager } from '../scenes/SceneManager';
+} from '../scenes/multiplayer/MultiplayerMenuScene';
+import { MultiplayerPlayingScene } from '../scenes/multiplayer/MultiplayerPlayingScene';
+import { SinglePlayerGameOverScene } from '../scenes/single-player/SinglePlayerGameOverScene';
+import { SinglePlayerPlayingScene } from '../scenes/single-player/SinglePlayerPlayingScene';
 import { AudioManager } from './AudioManager';
 import { InputManager } from './InputManager';
 import { Loop } from './Loop';
@@ -93,7 +93,7 @@ export class Game {
 
   private readonly startPlayingScene = (): void => {
     this.sceneManager?.setScene(
-      new PlayingScene(
+      new SinglePlayerPlayingScene(
         this.renderer,
         this.audioManager,
         this.showGameOverScene,
@@ -132,7 +132,7 @@ export class Game {
     this.latestLobbyState = state;
 
     this.sceneManager?.setScene(
-      new LobbyScene(
+      new MultiplayerLobbyScene(
         this.renderer,
         this.audioManager,
         this.socketClient,
@@ -164,7 +164,7 @@ export class Game {
     this.latestLobbyState = lobbyState ?? this.latestLobbyState;
 
     this.sceneManager?.setScene(
-      new MatchResultsScene(
+      new MultiplayerMatchResultsScene(
         this.renderer,
         this.audioManager,
         this.socketClient,
@@ -178,7 +178,7 @@ export class Game {
 
   private readonly showGameOverScene = (finalScore: number): void => {
     this.sceneManager?.setScene(
-      new GameOverScene(
+      new SinglePlayerGameOverScene(
         this.renderer,
         this.audioManager,
         finalScore,

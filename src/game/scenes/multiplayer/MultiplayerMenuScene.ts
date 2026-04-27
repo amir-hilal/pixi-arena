@@ -1,13 +1,13 @@
 import { Text } from 'pixi.js';
-import type { SocketClient } from '../../api/SocketClient';
+import type { SocketClient } from '../../../api/SocketClient';
 import type {
   InputState,
   MatchResult,
   MatchSnapshot,
-} from '../../shared/types/index';
-import type { AudioManager } from '../core/AudioManager';
-import type { Renderer } from '../core/Renderer';
-import type { Scene } from './Scene';
+} from '../../../shared/types/index';
+import type { AudioManager } from '../../core/AudioManager';
+import type { Renderer } from '../../core/Renderer';
+import type { Scene } from '../common/Scene';
 
 export interface LobbyPlayerPayload {
   id: string;

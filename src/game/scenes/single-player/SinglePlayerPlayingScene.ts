@@ -1,30 +1,36 @@
-import { Container, Text } from 'pixi.js';
-import { Player, type Position } from '../entities/Player';
-import type { Enemy } from '../entities/Enemy';
-import { EnemySystem } from '../systems/EnemySystem';
-import { MovementSystem } from '../systems/MovementSystem';
-import { InputManager } from '../core/InputManager';
-import type { InputDirection } from '../core/InputManager';
-import type { AudioManager } from '../core/AudioManager';
-import type { Renderer } from '../core/Renderer';
-import { VirtualJoystick } from '../ui/VirtualJoystick';
-import type { Scene } from './Scene';
-import { getWorldBounds, WORLD_GATES } from '../utils/world';
-import { Camera } from '../core/Camera';
-import { GroundBackground } from '../ui/GroundBackground';
-import { WorldBoundary } from '../ui/WorldBoundary';
-import { ObstacleSystem } from '../systems/ObstacleSystem';
-import type { ObstacleRect } from '../entities/Obstacle';
-import { INITIAL_LIVES } from '../../shared/constants/player';
-import { POINTS_PER_SECOND } from '../../shared/constants/simulation';
-import { circleRectPushback } from '../../shared/simulation/collision';
+import { Text } from 'pixi.js';
+import { INITIAL_LIVES } from '../../../shared/constants/player';
+import { POINTS_PER_SECOND } from '../../../shared/constants/simulation';
+import { circleRectPushback } from '../../../shared/simulation/collision';
 import {
   applyDamage,
   collectEnemyCollisions,
   computeWinner,
   type PlayerDamageState,
-} from '../../shared/simulation/damage';
-import type { PlayerState } from '../../shared/types/index';
+} from '../../../shared/simulation/damage';
+import type { PlayerState } from '../../../shared/types/index';
+import { Camera } from '../../core/Camera';
+import { InputManager } from '../../core/InputManager';
+import type { InputDirection } from '../../core/InputManager';
+import type { AudioManager } from '../../core/AudioManager';
+import type { Renderer } from '../../core/Renderer';
+import type { Enemy } from '../../entities/Enemy';
+import type { ObstacleRect } from '../../entities/Obstacle';
+import { Player, type Position } from '../../entities/Player';
+import { EnemySystem } from '../../systems/EnemySystem';
+import { MovementSystem } from '../../systems/MovementSystem';
+import { VirtualJoystick } from '../../ui/VirtualJoystick';
+import { getWorldBounds, WORLD_GATES } from '../../utils/world';
+import type { Scene } from '../common/Scene';
+import {
+  createSceneText,
+  destroySceneText,
+} from '../common/createSceneText';
+import {
+  createWorldView,
+  destroyWorldView,
+  type WorldView,
+} from '../common/createWorldView';
 
 const INITIAL_PLAYER_POSITION_RATIO = 0.5;
 const INITIAL_SCORE = 0;
@@ -58,16 +64,13 @@ interface CircleCollider {
   radius: number;
 }
 
-export class PlayingScene implements Scene {
+export class SinglePlayerPlayingScene implements Scene {
   private readonly camera = new Camera();
   private readonly enemySystem = new EnemySystem();
   private readonly inputManager = new InputManager();
   private readonly movementSystem = new MovementSystem();
-  private readonly obstacleSystem = new ObstacleSystem();
   private player: Player | null = null;
-  private worldContainer: Container | null = null;
-  private ground: GroundBackground | null = null;
-  private boundary: WorldBoundary | null = null;
+  private worldView: WorldView | null = null;
   private livesText: Text | null = null;
   private displayedScore = INITIAL_SCORE;
   private scoreText: Text | null = null;
@@ -98,22 +101,11 @@ export class PlayingScene implements Scene {
     this.scoreText = this.createScoreText();
     this.timerText = this.createTimerText();
     this.livesText = this.createLivesText();
-    this.worldContainer = new Container();
-    this.renderer.addToStage(this.worldContainer);
+    this.worldView = createWorldView(this.renderer);
     this.renderer.addToStage(this.scoreText);
     this.renderer.addToStage(this.timerText);
     this.renderer.addToStage(this.livesText);
-    this.ground = new GroundBackground();
-    this.worldContainer.addChild(this.ground.renderable);
-
-    this.boundary = new WorldBoundary();
-    this.worldContainer.addChild(this.boundary.renderable);
-
-    for (const obstacle of this.obstacleSystem.initialize()) {
-      this.worldContainer.addChild(obstacle.renderable);
-    }
-
-    this.worldContainer.addChild(this.player.renderable);
+    this.worldView.container.addChild(this.player.renderable);
     this.initializeVirtualJoystick();
     this.isInitialized = true;
   }
@@ -151,43 +143,21 @@ export class PlayingScene implements Scene {
     this.destroyVirtualJoystick();
     this.removeEnemies(this.enemySystem.destroy());
 
-    for (const obstacle of this.obstacleSystem.destroy()) {
-      this.worldContainer?.removeChild(obstacle.renderable);
-      obstacle.renderable.destroy();
-    }
-
     if (this.player !== null) {
-      this.worldContainer?.removeChild(this.player.renderable);
+      this.worldView?.container.removeChild(this.player.renderable);
       this.player.renderable.destroy();
       this.player = null;
     }
 
-    if (this.worldContainer !== null) {
-      this.renderer.removeFromStage(this.worldContainer);
-      this.worldContainer.destroy({ children: true });
-      this.worldContainer = null;
-    }
+    destroyWorldView(this.renderer, this.worldView);
+    this.worldView = null;
 
-    this.ground = null;
-    this.boundary = null;
-
-    if (this.scoreText !== null) {
-      this.renderer.removeFromStage(this.scoreText);
-      this.scoreText.destroy();
-      this.scoreText = null;
-    }
-
-    if (this.livesText !== null) {
-      this.renderer.removeFromStage(this.livesText);
-      this.livesText.destroy();
-      this.livesText = null;
-    }
-
-    if (this.timerText !== null) {
-      this.renderer.removeFromStage(this.timerText);
-      this.timerText.destroy();
-      this.timerText = null;
-    }
+    destroySceneText(this.renderer, this.scoreText);
+    destroySceneText(this.renderer, this.livesText);
+    destroySceneText(this.renderer, this.timerText);
+    this.scoreText = null;
+    this.livesText = null;
+    this.timerText = null;
 
     this.resetDamageFeedback();
     this.displayedScore = INITIAL_SCORE;
@@ -218,11 +188,9 @@ export class PlayingScene implements Scene {
   }
 
   private createScoreText(): Text {
-    const scoreText = new Text({
-      style: {
-        fill: SCORE_TEXT_COLOR,
-        fontSize: SCORE_TEXT_SIZE,
-      },
+    const scoreText = createSceneText({
+      fill: SCORE_TEXT_COLOR,
+      fontSize: SCORE_TEXT_SIZE,
       text: this.getScoreLabel(),
     });
 
@@ -232,11 +200,9 @@ export class PlayingScene implements Scene {
   }
 
   private createTimerText(): Text {
-    const timerText = new Text({
-      style: {
-        fill: TIMER_TEXT_COLOR,
-        fontSize: TIMER_TEXT_SIZE,
-      },
+    const timerText = createSceneText({
+      fill: TIMER_TEXT_COLOR,
+      fontSize: TIMER_TEXT_SIZE,
       text: this.getTimerLabel(),
     });
 
@@ -246,11 +212,9 @@ export class PlayingScene implements Scene {
   }
 
   private createLivesText(): Text {
-    const livesText = new Text({
-      style: {
-        fill: LIVES_TEXT_COLOR,
-        fontSize: LIVES_TEXT_SIZE,
-      },
+    const livesText = createSceneText({
+      fill: LIVES_TEXT_COLOR,
+      fontSize: LIVES_TEXT_SIZE,
       text: this.getLivesLabel(),
     });
 
@@ -291,13 +255,17 @@ export class PlayingScene implements Scene {
     };
   }
 
+  private getObstacles() {
+    return this.worldView?.obstacleSystem.getObstacles() ?? [];
+  }
+
   private updateEnemies(deltaSeconds: number, player: Player): void {
     const viewport = this.renderer.getViewportSize();
     const result = this.enemySystem.update({
       bounds: getWorldBounds(),
       deltaSeconds,
       gates: WORLD_GATES,
-      obstacles: this.obstacleSystem.getObstacles().map((o) => o.rect),
+      obstacles: this.getObstacles().map((o) => o.rect),
       playerPosition: player.position,
       survivalTimeSeconds: player.state.survivalTimeSeconds,
       viewport: {
@@ -309,7 +277,7 @@ export class PlayingScene implements Scene {
     });
 
     for (const enemy of result.spawnedEnemies) {
-      this.worldContainer?.addChild(enemy.renderable);
+      this.worldView?.container.addChild(enemy.renderable);
     }
 
     this.removeEnemies(result.removedEnemies);
@@ -317,13 +285,13 @@ export class PlayingScene implements Scene {
 
   private removeEnemies(enemies: Enemy[]): void {
     for (const enemy of enemies) {
-      this.worldContainer?.removeChild(enemy.renderable);
+      this.worldView?.container.removeChild(enemy.renderable);
       enemy.renderable.destroy();
     }
   }
 
   private resolvePlayerObstacleCollisions(player: Player): void {
-    for (const obstacle of this.obstacleSystem.getObstacles()) {
+    for (const obstacle of this.getObstacles()) {
       this.resolveCircleRectCollision(player, obstacle.rect);
     }
 
@@ -332,7 +300,7 @@ export class PlayingScene implements Scene {
   }
 
   private resolveEnemyObstacleCollisions(): void {
-    const obstacles = this.obstacleSystem.getObstacles();
+    const obstacles = this.getObstacles();
 
     for (const enemy of this.enemySystem.getEnemies()) {
       for (const obstacle of obstacles) {
@@ -422,8 +390,8 @@ export class PlayingScene implements Scene {
   }
 
   private syncWorldContainerPosition(): void {
-    if (this.worldContainer !== null) {
-      this.worldContainer.position.set(
+    if (this.worldView !== null) {
+      this.worldView.container.position.set(
         this.camera.x + this.shakeOffsetX,
         this.camera.y + this.shakeOffsetY,
       );

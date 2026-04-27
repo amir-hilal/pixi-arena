@@ -1,12 +1,12 @@
 import { Text } from 'pixi.js';
-import type { MatchResult, PlayerResult } from '../../shared/types/index';
-import type { AudioManager } from '../core/AudioManager';
-import type { Renderer } from '../core/Renderer';
+import type { MatchResult, PlayerResult } from '../../../shared/types/index';
+import type { AudioManager } from '../../core/AudioManager';
+import type { Renderer } from '../../core/Renderer';
 import type {
   LobbyStatePayload,
   MultiplayerSocketClient,
 } from './MultiplayerMenuScene';
-import type { Scene } from './Scene';
+import type { Scene } from '../common/Scene';
 
 const TITLE_TEXT = 'Match Results';
 const BACK_TO_LOBBY_TEXT = 'Back to Lobby';
@@ -26,7 +26,7 @@ const STATUS_TEXT_Y_OFFSET = 414;
 const TEXT_COLOR = 0xffffff;
 const MUTED_TEXT_COLOR = 0xcbd5e1;
 
-export class MatchResultsScene implements Scene {
+export class MultiplayerMatchResultsScene implements Scene {
   private titleText: Text | null = null;
   private winnerText: Text | null = null;
   private resultsText: Text | null = null;

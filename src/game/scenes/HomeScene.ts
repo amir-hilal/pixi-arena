@@ -1,7 +1,7 @@
 import { Text } from 'pixi.js';
 import type { AudioManager } from '../core/AudioManager';
 import type { Renderer } from '../core/Renderer';
-import type { Scene } from './Scene';
+import type { Scene } from './common/Scene';
 
 const TITLE_TEXT = 'Pixi Arena';
 const SINGLE_PLAYER_TEXT = 'Single Player';

@@ -1,7 +1,7 @@
 import { Text } from 'pixi.js';
-import type { AudioManager } from '../core/AudioManager';
-import type { Renderer } from '../core/Renderer';
-import type { Scene } from './Scene';
+import type { AudioManager } from '../../core/AudioManager';
+import type { Renderer } from '../../core/Renderer';
+import type { Scene } from '../common/Scene';
 
 const GAME_OVER_TEXT = 'Game Over';
 const RESTART_TEXT = 'Click to restart';
@@ -17,7 +17,7 @@ const RESTART_TEXT_Y_OFFSET = 94;
 const HOME_TEXT_Y_OFFSET = 130;
 const TEXT_COLOR = 0xffffff;
 
-export class GameOverScene implements Scene {
+export class SinglePlayerGameOverScene implements Scene {
   private gameOverText: Text | null = null;
   private restartText: Text | null = null;
   private homeText: Text | null = null;
