@@ -80,6 +80,10 @@ export class MultiplayerPlayingScene implements Scene {
   }
 
   public update(_deltaSeconds: number): void {
+    if (this.isLocalPlayerEliminated()) {
+      return;
+    }
+
     const direction = this.inputManager.getMovementDirection();
 
     this.socketClient.emit('player:input', {
@@ -251,14 +255,18 @@ export class MultiplayerPlayingScene implements Scene {
   }
 
   private updateEliminatedOverlayFromSnapshot(): void {
+    if (this.isLocalPlayerEliminated()) {
+      this.showEliminatedOverlay();
+    }
+  }
+
+  private isLocalPlayerEliminated(): boolean {
     const socketId = this.socketClient.getId();
     const localPlayer = this.latestSnapshot.players.find(
       (player) => player.id === socketId,
     );
 
-    if (localPlayer?.isEliminated === true) {
-      this.showEliminatedOverlay();
-    }
+    return localPlayer?.isEliminated === true;
   }
 
   private showEliminatedOverlay(): void {
