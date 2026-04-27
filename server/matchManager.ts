@@ -103,7 +103,7 @@ export function startMatchLoop(
   onPlayerEliminated: (elimination: PlayerEliminatedPayload) => void,
   onMatchFinished: (finished: MatchFinishedPayload) => void,
 ): void {
-  stopMatchLoop(lobby.lobbyCode);
+  clearMatchInterval(lobby.lobbyCode);
 
   const interval = setInterval(() => {
     const result = stepMatch(lobby);
@@ -126,16 +126,19 @@ export function startMatchLoop(
 }
 
 export function stopMatchLoop(lobbyCode: string): void {
+  clearMatchInterval(lobbyCode);
+  latestInputs.delete(lobbyCode);
+  enemySpawnTimers.delete(lobbyCode);
+  enemyIds.delete(lobbyCode);
+}
+
+function clearMatchInterval(lobbyCode: string): void {
   const interval = tickIntervals.get(lobbyCode);
 
   if (interval !== undefined) {
     clearInterval(interval);
     tickIntervals.delete(lobbyCode);
   }
-
-  latestInputs.delete(lobbyCode);
-  enemySpawnTimers.delete(lobbyCode);
-  enemyIds.delete(lobbyCode);
 }
 
 export function storePlayerInput(
