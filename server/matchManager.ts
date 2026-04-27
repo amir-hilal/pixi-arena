@@ -268,7 +268,7 @@ function resolveEnemyCollisions(
   match: ServerMatchState,
 ): PlayerEliminatedPayload[] {
   const hitEnemyIds = new Set<string>();
-  const eliminations: PlayerEliminatedPayload[] = [];
+  const newlyEliminatedIds = new Set<string>();
   const enemyColliders = match.enemies.map((enemy) => ({
     id: enemy.id,
     position: enemy.position,
@@ -299,10 +299,7 @@ function resolveEnemyCollisions(
     applyDamage(player, hits.length);
 
     if (player.isEliminated) {
-      eliminations.push({
-        playerId: player.id,
-        rank: getEliminationRank(match.players),
-      });
+      newlyEliminatedIds.add(player.id);
     }
   }
 
@@ -310,11 +307,7 @@ function resolveEnemyCollisions(
     match.enemies = match.enemies.filter((enemy) => !hitEnemyIds.has(enemy.id));
   }
 
-  return eliminations;
-}
-
-function getEliminationRank(players: readonly PlayerState[]): number {
-  return players.filter((player) => !player.isEliminated).length + 1;
+  return createEliminationPayloads(match.players, newlyEliminatedIds);
 }
 
 function resolveMatchFinished(
@@ -355,15 +348,8 @@ function createPlayerResults(
   const playerNames = new Map(
     lobby.players.map((player) => [player.id, player.name]),
   );
-  const orderedPlayers = [...match.players].sort((a, b) => {
-    if (a.isEliminated !== b.isEliminated) {
-      return a.isEliminated ? 1 : -1;
-    }
+  const orderedPlayers = rankPlayers(match.players);
 
-    return b.survivalTimeSeconds - a.survivalTimeSeconds;
-  });
-
-  // Same-tick eliminations keep lobby insertion order after equal survival times.
   return orderedPlayers.map((player, index) => ({
     id: player.id,
     name: playerNames.get(player.id) ?? 'Player',
@@ -371,6 +357,47 @@ function createPlayerResults(
     survivalTimeSeconds: player.survivalTimeSeconds,
     score: Math.floor(player.score),
   }));
+}
+
+function createEliminationPayloads(
+  players: readonly PlayerState[],
+  newlyEliminatedIds: ReadonlySet<string>,
+): PlayerEliminatedPayload[] {
+  if (newlyEliminatedIds.size === 0) {
+    return [];
+  }
+
+  const ranks = new Map(
+    rankPlayers(players).map((player, index) => [player.id, index + 1]),
+  );
+
+  return players
+    .filter((player) => newlyEliminatedIds.has(player.id))
+    .map((player) => ({
+      playerId: player.id,
+      rank: ranks.get(player.id) ?? players.length,
+    }));
+}
+
+function rankPlayers(players: readonly PlayerState[]): PlayerState[] {
+  const originalIndexes = new Map(
+    players.map((player, index) => [player.id, index]),
+  );
+
+  return [...players].sort((a, b) => {
+    if (a.isEliminated !== b.isEliminated) {
+      return a.isEliminated ? 1 : -1;
+    }
+
+    const survivalDelta = b.survivalTimeSeconds - a.survivalTimeSeconds;
+
+    if (survivalDelta !== 0) {
+      return survivalDelta;
+    }
+
+    // Same-tick eliminations use lobby/player insertion order as the tie-breaker.
+    return (originalIndexes.get(a.id) ?? 0) - (originalIndexes.get(b.id) ?? 0);
+  });
 }
 
 function getFirstActivePlayer(players: readonly PlayerState[]): PlayerState | null {
