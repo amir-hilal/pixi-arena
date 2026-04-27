@@ -12,6 +12,7 @@ import type { Renderer } from '../core/Renderer';
 import type {
   MatchStartedPayload,
   MultiplayerSocketClient,
+  PlayerEliminatedPayload,
 } from './MultiplayerMenuScene';
 import type { Scene } from './Scene';
 
@@ -22,6 +23,7 @@ const TEXT_COLOR = 0xffffff;
 const MUTED_TEXT_COLOR = 0xcbd5e1;
 const TITLE_TEXT_SIZE = 18;
 const STATUS_TEXT_SIZE = 14;
+const ELIMINATED_TEXT_SIZE = 32;
 const WORLD_MARGIN = 32;
 
 export class MultiplayerPlayingScene implements Scene {
@@ -29,6 +31,7 @@ export class MultiplayerPlayingScene implements Scene {
   private readonly enemyRenderables = new Map<string, Graphics>();
   private statusText: Text | null = null;
   private tickText: Text | null = null;
+  private eliminatedText: Text | null = null;
   private latestSnapshot: MatchSnapshot;
 
   public constructor(
@@ -43,6 +46,7 @@ export class MultiplayerPlayingScene implements Scene {
   public initialize(): void {
     this.inputManager.initialize();
     this.socketClient.on('match:snapshot', this.handleMatchSnapshot);
+    this.socketClient.on('player:eliminated', this.handlePlayerEliminated);
 
     this.statusText = new Text({
       style: {
@@ -58,9 +62,20 @@ export class MultiplayerPlayingScene implements Scene {
       },
       text: '',
     });
+    this.eliminatedText = new Text({
+      anchor: 0.5,
+      style: {
+        align: 'center',
+        fill: 0xfca5a5,
+        fontSize: ELIMINATED_TEXT_SIZE,
+      },
+      text: 'Eliminated',
+    });
+    this.eliminatedText.visible = false;
 
     this.renderer.addToStage(this.statusText);
     this.renderer.addToStage(this.tickText);
+    this.renderer.addToStage(this.eliminatedText);
     this.renderSnapshot();
   }
 
@@ -76,11 +91,14 @@ export class MultiplayerPlayingScene implements Scene {
   public resize(width: number, _height: number): void {
     this.statusText?.position.set(WORLD_MARGIN, WORLD_MARGIN);
     this.tickText?.position.set(WORLD_MARGIN, WORLD_MARGIN + 26);
+    this.eliminatedText?.position.set(width / 2, WORLD_MARGIN + 120);
     this.renderPlayers(width);
+    this.renderEnemies(width);
   }
 
   public destroy(): void {
     this.socketClient.off('match:snapshot', this.handleMatchSnapshot);
+    this.socketClient.off('player:eliminated', this.handlePlayerEliminated);
     this.inputManager.destroy();
 
     for (const renderable of this.playerRenderables.values()) {
@@ -95,15 +113,26 @@ export class MultiplayerPlayingScene implements Scene {
 
     this.playerRenderables.clear();
     this.enemyRenderables.clear();
+    this.destroyText(this.eliminatedText);
     this.destroyText(this.tickText);
     this.destroyText(this.statusText);
+    this.eliminatedText = null;
     this.tickText = null;
     this.statusText = null;
   }
 
   private readonly handleMatchSnapshot = (snapshot: MatchSnapshot): void => {
     this.latestSnapshot = snapshot;
+    this.updateEliminatedOverlayFromSnapshot();
     this.renderSnapshot();
+  };
+
+  private readonly handlePlayerEliminated = (
+    elimination: PlayerEliminatedPayload,
+  ): void => {
+    if (elimination.playerId === this.socketClient.getId()) {
+      this.showEliminatedOverlay();
+    }
   };
 
   private renderSnapshot(): void {
@@ -219,6 +248,23 @@ export class MultiplayerPlayingScene implements Scene {
     const availableWidth = Math.max(1, viewportWidth - WORLD_MARGIN * 2);
 
     return Math.min(1, availableWidth / WORLD_WIDTH);
+  }
+
+  private updateEliminatedOverlayFromSnapshot(): void {
+    const socketId = this.socketClient.getId();
+    const localPlayer = this.latestSnapshot.players.find(
+      (player) => player.id === socketId,
+    );
+
+    if (localPlayer?.isEliminated === true) {
+      this.showEliminatedOverlay();
+    }
+  }
+
+  private showEliminatedOverlay(): void {
+    if (this.eliminatedText !== null) {
+      this.eliminatedText.visible = true;
+    }
   }
 
   private destroyText(text: Text | null): void {

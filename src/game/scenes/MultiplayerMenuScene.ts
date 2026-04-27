@@ -32,12 +32,18 @@ export interface MatchStartedPayload {
   initialState: MatchSnapshot;
 }
 
+export interface PlayerEliminatedPayload {
+  playerId: string;
+  rank: number;
+}
+
 interface MultiplayerIncomingEvents {
   'lobby:state': LobbyStatePayload;
   'lobby:error': LobbyErrorPayload;
   'match:countdown': MatchCountdownPayload;
   'match:started': MatchStartedPayload;
   'match:snapshot': MatchSnapshot;
+  'player:eliminated': PlayerEliminatedPayload;
 }
 
 interface MultiplayerOutgoingEvents {

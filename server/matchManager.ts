@@ -3,7 +3,10 @@ import {
   PLAYER_RADIUS,
   PLAYER_SPEED,
 } from '../src/shared/constants/player.js';
-import { ENEMY_SPEED } from '../src/shared/constants/enemy.js';
+import {
+  ENEMY_RADIUS,
+  ENEMY_SPEED,
+} from '../src/shared/constants/enemy.js';
 import {
   BOUNDARY_WALL_THICKNESS,
   WORLD_GATES,
@@ -21,6 +24,10 @@ import {
   isEnemyWithinValidBounds,
   stepEnemyTowardPosition,
 } from '../src/shared/simulation/enemyBehavior.js';
+import {
+  applyDamage,
+  collectEnemyCollisions,
+} from '../src/shared/simulation/damage.js';
 import type {
   EnemyState,
   InputState,
@@ -29,7 +36,11 @@ import type {
   Vector2,
   WorldState,
 } from '../src/shared/types/index.js';
-import type { LobbyState, ServerMatchState } from './types.js';
+import type {
+  LobbyState,
+  PlayerEliminatedPayload,
+  ServerMatchState,
+} from './types.js';
 
 const TICK_RATE = 30;
 const TICK_INTERVAL_MS = 1000 / TICK_RATE;
@@ -55,6 +66,11 @@ const tickIntervals = new Map<string, NodeJS.Timeout>();
 const enemySpawnTimers = new Map<string, number>();
 const enemyIds = new Map<string, number>();
 
+interface MatchTickResult {
+  snapshot: MatchSnapshot;
+  eliminations: PlayerEliminatedPayload[];
+}
+
 export function initializeMatch(lobby: LobbyState): ServerMatchState {
   const match: ServerMatchState = {
     matchId: `match-${Date.now().toString(36)}`,
@@ -78,14 +94,19 @@ export function initializeMatch(lobby: LobbyState): ServerMatchState {
 export function startMatchLoop(
   lobby: LobbyState,
   onSnapshot: (snapshot: MatchSnapshot) => void,
+  onPlayerEliminated: (elimination: PlayerEliminatedPayload) => void,
 ): void {
   stopMatchLoop(lobby.lobbyCode);
 
   const interval = setInterval(() => {
-    const snapshot = stepMatch(lobby);
+    const result = stepMatch(lobby);
 
-    if (snapshot !== null) {
-      onSnapshot(snapshot);
+    if (result !== null) {
+      for (const elimination of result.eliminations) {
+        onPlayerEliminated(elimination);
+      }
+
+      onSnapshot(result.snapshot);
     }
   }, TICK_INTERVAL_MS);
 
@@ -145,7 +166,7 @@ export function getMatchSnapshot(
   };
 }
 
-function stepMatch(lobby: LobbyState): MatchSnapshot | null {
+function stepMatch(lobby: LobbyState): MatchTickResult | null {
   const match = lobby.match;
 
   if (match === undefined || lobby.status !== 'playing') {
@@ -155,6 +176,10 @@ function stepMatch(lobby: LobbyState): MatchSnapshot | null {
   const matchInputs = latestInputs.get(lobby.lobbyCode);
 
   for (const player of match.players) {
+    if (player.isEliminated) {
+      continue;
+    }
+
     const input = matchInputs?.get(player.id) ?? { dx: 0, dy: 0 };
 
     applyPlayerInput(player, input, TICK_DELTA_SECONDS, PLAYER_SPEED);
@@ -163,12 +188,16 @@ function stepMatch(lobby: LobbyState): MatchSnapshot | null {
 
   spawnEnemies(lobby, match);
   moveEnemies(match);
+  const eliminations = resolveEnemyCollisions(match);
   cullEnemies(match);
 
   match.tick += 1;
   match.elapsedSeconds += TICK_DELTA_SECONDS;
 
-  return getMatchSnapshot(match);
+  return {
+    snapshot: getMatchSnapshot(match),
+    eliminations,
+  };
 }
 
 function spawnEnemies(lobby: LobbyState, match: ServerMatchState): void {
@@ -213,6 +242,59 @@ function cullEnemies(match: ServerMatchState): void {
   match.enemies = match.enemies.filter((enemy) =>
     isEnemyWithinValidBounds(enemy.position, bounds, margin),
   );
+}
+
+function resolveEnemyCollisions(
+  match: ServerMatchState,
+): PlayerEliminatedPayload[] {
+  const hitEnemyIds = new Set<string>();
+  const eliminations: PlayerEliminatedPayload[] = [];
+  const enemyColliders = match.enemies.map((enemy) => ({
+    id: enemy.id,
+    position: enemy.position,
+    radius: ENEMY_RADIUS,
+  }));
+
+  for (const player of match.players) {
+    if (player.isEliminated) {
+      continue;
+    }
+
+    const hits = collectEnemyCollisions(
+      {
+        position: player.position,
+        radius: PLAYER_RADIUS,
+      },
+      enemyColliders.filter((enemy) => !hitEnemyIds.has(enemy.id)),
+    );
+
+    if (hits.length === 0) {
+      continue;
+    }
+
+    for (const enemy of hits) {
+      hitEnemyIds.add(enemy.id);
+    }
+
+    applyDamage(player, hits.length);
+
+    if (player.isEliminated) {
+      eliminations.push({
+        playerId: player.id,
+        rank: getEliminationRank(match.players),
+      });
+    }
+  }
+
+  if (hitEnemyIds.size > 0) {
+    match.enemies = match.enemies.filter((enemy) => !hitEnemyIds.has(enemy.id));
+  }
+
+  return eliminations;
+}
+
+function getEliminationRank(players: readonly PlayerState[]): number {
+  return players.filter((player) => !player.isEliminated).length + 1;
 }
 
 function getFirstActivePlayer(players: readonly PlayerState[]): PlayerState | null {

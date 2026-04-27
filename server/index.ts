@@ -28,6 +28,7 @@ import type {
   MatchCountdownPayload,
   MatchSnapshotPayload,
   MatchStartedPayload,
+  PlayerEliminatedPayload,
   PlayerInputPayload,
 } from './types.js';
 
@@ -207,9 +208,15 @@ function startMatchCountdown(lobby: LobbyState): void {
 
     emitLobbyState(playingLobby);
     emitMatchStarted(playingLobby.lobbyCode, match.matchId, getMatchSnapshot(match));
-    startMatchLoop(playingLobby, (snapshot) => {
-      emitMatchSnapshot(playingLobby.lobbyCode, snapshot);
-    });
+    startMatchLoop(
+      playingLobby,
+      (snapshot) => {
+        emitMatchSnapshot(playingLobby.lobbyCode, snapshot);
+      },
+      (elimination) => {
+        emitPlayerEliminated(playingLobby.lobbyCode, elimination);
+      },
+    );
   }, 1000);
 }
 
@@ -248,4 +255,11 @@ function emitMatchSnapshot(
   snapshot: MatchSnapshotPayload,
 ): void {
   io.to(lobbyCode).emit('match:snapshot', snapshot);
+}
+
+function emitPlayerEliminated(
+  lobbyCode: string,
+  payload: PlayerEliminatedPayload,
+): void {
+  io.to(lobbyCode).emit('player:eliminated', payload);
 }

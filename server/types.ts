@@ -49,6 +49,11 @@ export type MatchSnapshotPayload = MatchSnapshot;
 
 export interface PlayerInputPayload extends InputState {}
 
+export interface PlayerEliminatedPayload {
+  playerId: string;
+  rank: number;
+}
+
 export interface ServerMatchState extends MatchState {
   players: PlayerState[];
   enemies: EnemyState[];
