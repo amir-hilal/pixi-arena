@@ -2,9 +2,9 @@
 
 ## Current Architecture
 
-Pixi Arena is currently a Vite, TypeScript, and PixiJS browser game with a temporary local Socket.IO mock server for multiplayer lobby development. The current implementation includes Home, Playing, Game Over, Multiplayer Menu, Lobby, and Multiplayer Playing placeholder scenes; player movement; mobile joystick input; lives; survival scoring; difficulty scaling; world bounds; obstacles; and basic feedback.
+Pixi Arena is currently a Vite, TypeScript, and PixiJS browser game with a local Socket.IO server for multiplayer lobby and authoritative movement development. The current implementation includes Home, Playing, Game Over, Multiplayer Menu, Lobby, and Multiplayer Playing scenes; player movement; mobile joystick input; lives; survival scoring; difficulty scaling; world bounds; obstacles; and basic feedback.
 
-The multiplayer foundation is implemented through the lobby flow. Shared constants, shared simulation functions, and shared state types live under `src/shared/`. `Player` and `Enemy` are Pixi view wrappers over shared state. `SocketClient` exists as a thin Socket.IO transport wrapper. The mock server supports lobby create, join, leave, host reassignment, countdown, and `match:started`; it does not simulate gameplay.
+The multiplayer foundation is implemented through the lobby flow and server-authoritative player movement. Shared constants, shared simulation functions, and shared state types live under `src/shared/`. `Player` and `Enemy` are Pixi view wrappers over shared state. `SocketClient` exists as a thin Socket.IO transport wrapper. The server supports lobby create, join, leave, host reassignment, countdown, `match:started`, player input, server-side movement, and `match:snapshot`; enemies, damage, winner logic, match results, Firebase, and persistence are not implemented yet.
 
 The current frontend separates engine setup, gameplay data, gameplay logic, scene orchestration, API access, and UI. Each layer should have one clear reason to change.
 
@@ -95,14 +95,10 @@ In multiplayer, the frontend update loop should also process server snapshots an
 
 ## Current Next Step
 
-Implement Phase I — authoritative realtime server:
-- server-owned match state
-- input handling
-- simulation loop
-- snapshot broadcasting
+Implement server-owned enemies and enemy snapshots.
 
 ## Current Risk
 
-The current server is a mock implementation and does not simulate gameplay.
-All multiplayer gameplay logic (movement, enemies, damage, winner) still needs to be implemented server-side.
+The current server-authoritative slice only simulates player movement.
+Enemies, damage/collisions, eliminations, winner/game over logic, match results, and persistence still need to be implemented server-side.
 If the event contract is violated during Phase I, client scenes may require refactoring.

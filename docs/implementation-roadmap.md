@@ -4,9 +4,9 @@
 
 This roadmap is a high-level product roadmap. For multiplayer implementation details, `docs/multiplayer-implementation-plan.md` is authoritative.
 
-Single-player stabilization, world/camera work, shared simulation extraction, entity state/view wrappers, SocketClient, the Home/Multiplayer menu split, the temporary mock Socket.IO server, and LobbyScene are complete. The current next step is Phase I from the multiplayer plan: implement the authoritative realtime server.
+Single-player stabilization, world/camera work, shared simulation extraction, entity state/view wrappers, SocketClient, the Home/Multiplayer menu split, the local Socket.IO server, LobbyScene, and the Phase I authoritative movement slice are complete. The current next step is to implement server-owned enemies and enemy snapshots.
 
-Current risk: the current server is a mock implementation and does not simulate gameplay. Multiplayer movement, enemies, damage, winner logic, and snapshots still need to be implemented server-side.
+Current risk: the server currently simulates player movement only. Enemies, damage/collisions, eliminations, winner/game over logic, match results, and persistence still need to be implemented server-side.
 
 ## Phase 1: Current Single-Player Stabilization
 
@@ -102,10 +102,10 @@ Goal: move player simulation authority to the server.
 
 Checklist:
 
-- Clients send input state.
-- Server updates player positions.
-- Server broadcasts snapshots.
-- Client renders local and remote players.
+- [x] Clients send input state.
+- [x] Server updates player positions.
+- [x] Server broadcasts snapshots.
+- [x] Client renders local and remote players from snapshots.
 - Add interpolation.
 
 Acceptance criteria:

@@ -53,16 +53,13 @@
 - [x] Phase E complete — HomeScene split into Single Player/Multiplayer; `MultiplayerMenuScene` added with display name, create/join/back, socket subscriptions, and LobbyScene transition
 - [x] Phase F.0 — Add temporary local mock Socket.IO server for lobby UI development
 - [x] Phase F — Implement LobbyScene with lobby state rendering, host controls, leave flow, countdown, and match:started subscription
-- [ ] Phase I — Create authoritative realtime server
-- [ ] Phase I — Add lobby create/join/leave (server-side authoritative version)
-- [ ] Phase I — Add player input events
-- [ ] Phase I — Add server-authoritative movement
-- [ ] Phase I — Add snapshot broadcasting
-- [ ] Phase I — Add remote player rendering
-- [ ] Phase I — Add interpolation
-- [ ] Phase I — Add server-owned enemies
-- [ ] Phase I — Add multiplayer game over/winner logic
-- [ ] Phase G — Implement client gameplay rendering from authoritative server snapshots
+- [x] Phase I movement slice — server-owned match state, player input, authoritative movement tick loop, `match:snapshot`, and snapshot-driven player rendering
+- [ ] Phase I — Add server-owned enemies and enemy snapshots
+- [ ] Phase I — Add damage/collisions
+- [ ] Phase I — Add eliminations
+- [ ] Phase I — Add winner/game over logic
+- [ ] Phase I — Add match results
+- [ ] Phase G — Expand client gameplay rendering from authoritative server snapshots
 
 ## Firebase Persistence
 
@@ -90,22 +87,21 @@ The goal remains interview-ready production quality over feature quantity. Authe
 
 ## Current Multiplayer State
 
-- Lobby flow is fully functional using a temporary mock Socket.IO server
+- Lobby flow is fully functional using the local Socket.IO server
 - Client is fully server-state-driven via `lobby:state`
-- Scene transitions work: MultiplayerMenu → Lobby → MultiplayerPlaying (placeholder)
-- No gameplay simulation exists yet in multiplayer
-- Match start is mock-triggered only
+- Scene transitions work: MultiplayerMenu → Lobby → MultiplayerPlaying
+- Server owns match state, player positions, player input processing, and movement snapshots
+- MultiplayerPlayingScene renders players from `match:snapshot` only
+- No enemies, damage, winner logic, interpolation, Firebase, or persistence exist yet
+- `survivalTimeSeconds` is not updated yet
+- Match state is currently stored inside internal lobby state and may later be separated from public lobby payloads
 
 ## Current Next Step
 
-Implement Phase I — authoritative realtime server:
-- server-owned match state
-- input handling
-- simulation loop
-- snapshot broadcasting
+Implement server-owned enemies and enemy snapshots.
 
 ## Current Risk
 
-The current server is a mock implementation and does not simulate gameplay.
-All multiplayer gameplay logic (movement, enemies, damage, winner) still needs to be implemented server-side.
+The current server-authoritative slice only simulates player movement.
+Enemies, damage/collisions, eliminations, winner/game over logic, match results, and persistence still need to be implemented server-side.
 If the event contract is violated during Phase I, client scenes may require refactoring.

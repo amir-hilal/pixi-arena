@@ -21,38 +21,37 @@ It supersedes scattered notes in `multiplayer-architecture.md` where the two con
 
 ## Current Status
 
-Phases A through F are complete:
+Phases A through F and the Phase I movement slice are complete:
 
 - Shared constants, types, and pure simulation functions exist under `src/shared/`.
 - `Player` and `Enemy` are Pixi view wrappers over `PlayerState` and `EnemyState`.
 - `SocketClient` exists as a typed Socket.IO transport wrapper.
 - `HomeScene` offers Single Player and Multiplayer.
 - `MultiplayerMenuScene` stores display name, shows Create Lobby / Join Lobby / Back, connects through `Game.ts`, and transitions to `LobbyScene` on `lobby:state`.
-- `server/` contains a temporary mock Socket.IO server for lobby UI development only.
+- `server/` owns lobby state, match state, player input, server-side player movement, and `match:snapshot` broadcasting.
 - `LobbyScene` renders from server `lobby:state`, supports host start, leave, countdown, errors, and transitions to `MultiplayerPlayingScene`.
-- `MultiplayerPlayingScene` exists as a placeholder only.
-- No authoritative realtime server or multiplayer gameplay simulation exists yet.
+- `MultiplayerPlayingScene` sends input and renders player positions from `match:snapshot` only.
+- Enemies, damage/collisions, eliminations, winner/game over logic, match results, interpolation, Firebase, and persistence do not exist yet.
 
 ## Current Multiplayer State
 
-- Lobby flow is fully functional using a temporary mock Socket.IO server.
+- Lobby flow is fully functional using the local Socket.IO server.
 - Client is fully server-state-driven via `lobby:state`.
-- Scene transitions work: MultiplayerMenu → Lobby → MultiplayerPlaying (placeholder).
-- No gameplay simulation exists yet in multiplayer.
-- Match start is mock-triggered only.
+- Scene transitions work: MultiplayerMenu → Lobby → MultiplayerPlaying.
+- Server owns match state, player positions, player input processing, and movement snapshots.
+- MultiplayerPlayingScene renders players from `match:snapshot` only.
+- No enemies, damage, winner logic, interpolation, Firebase, or persistence exist yet.
+- `survivalTimeSeconds` is not updated yet.
+- Match state is currently stored inside internal lobby state and may later be separated from public lobby payloads.
 
 ## Current Next Step
 
-Implement Phase I — authoritative realtime server:
-- server-owned match state
-- input handling
-- simulation loop
-- snapshot broadcasting
+Implement server-owned enemies and enemy snapshots.
 
 ## Current Risk
 
-The current server is a mock implementation and does not simulate gameplay.
-All multiplayer gameplay logic (movement, enemies, damage, winner) still needs to be implemented server-side.
+The current server-authoritative slice only simulates player movement.
+Enemies, damage/collisions, eliminations, winner/game over logic, match results, and persistence still need to be implemented server-side.
 If the event contract is violated during Phase I, client scenes may require refactoring.
 
 ---
@@ -92,10 +91,10 @@ MatchResultsScene
 | `src/api/SocketClient.ts` | Typed Socket.IO client wrapper — complete |
 | `src/game/scenes/MultiplayerMenuScene.ts` | Display name input, Create / Join UI — complete |
 | `src/game/scenes/LobbyScene.ts` | Player list, host controls, leave button — complete |
-| `src/game/scenes/MultiplayerPlayingScene.ts` | Placeholder now; later renders snapshots and sends input each frame |
+| `src/game/scenes/MultiplayerPlayingScene.ts` | Sends input and renders players from `match:snapshot`; enemy rendering comes next |
 | `src/game/scenes/MatchResultsScene.ts` | Ranked results, back to lobby / home |
 | `src/shared/` | Constants, types, simulation (see Part 2) — complete |
-| `server/` | Temporary mock Socket.IO lobby server now; authoritative server comes in Phase I |
+| `server/` | Authoritative movement slice complete; enemies/damage/results still pending |
 
 **Modified existing files:**
 - `src/game/scenes/HomeScene.ts` — Single Player / Multiplayer mode buttons complete
@@ -601,17 +600,30 @@ interface LobbyState {
 6. ✅ Inline `lobby:error` display.
 7. ✅ Subscribes to `lobby:state`, `lobby:error`, `match:countdown`, `match:started` in `initialize()` and unsubscribes in `destroy()`.
 
-### Phase I — Authoritative Realtime Server ← CURRENT NEXT PHASE
+### Phase I — Authoritative Realtime Server
 
-1. Replace the temporary mock with authoritative server-owned match state.
-2. Keep server-side authoritative lobby create, join, leave, host promotion, and code generation.
-3. Add `player:input` events.
-4. Implement match tick loop at 20–30 ticks/sec.
-5. Apply `player:input` events to `PlayerState` via `applyPlayerInput` + `clampPlayerToBounds`.
-6. Step enemies via `stepEnemyTowardTarget`. Spawn enemies via `selectSpawnPosition`.
-7. Resolve collisions via `circleRectPushback` + `collectEnemyCollisions` + `applyDamage`.
-8. Detect winner via `computeWinner`; emit `match:finished`.
-9. Broadcast `match:snapshot` each tick; broadcast `player:eliminated` on elimination.
+1. ✅ Replace the temporary mock countdown handoff with server-owned match state.
+2. ✅ Keep server-side authoritative lobby create, join, leave, host promotion, and code generation.
+3. ✅ Add `player:input` events.
+4. ✅ Implement match tick loop at 20–30 ticks/sec.
+5. ✅ Apply `player:input` events to `PlayerState` via `applyPlayerInput` + `clampPlayerToBounds`.
+6. ✅ Broadcast `match:snapshot` each tick with authoritative player positions.
+7. ✅ Render local and remote players from snapshots in `MultiplayerPlayingScene`.
+8. Pending: update `survivalTimeSeconds`.
+9. Pending: separate internal match state from public lobby payloads if the lobby contract needs a stricter boundary.
+10. Pending: step enemies via `stepEnemyTowardTarget`; spawn enemies via `selectSpawnPosition`.
+11. Pending: resolve collisions via `circleRectPushback` + `collectEnemyCollisions` + `applyDamage`.
+12. Pending: emit `player:eliminated`.
+13. Pending: detect winner via `computeWinner`; emit `match:finished`.
+14. Pending: produce match results for `MatchResultsScene`.
+
+### Phase I Next Slice — Server-Owned Enemies ← CURRENT NEXT PHASE
+
+1. Add enemies to server-owned `MatchState`.
+2. Spawn enemies on the server.
+3. Step enemies on the server.
+4. Include enemies in `match:snapshot`.
+5. Render enemies from snapshots on the client.
 
 ### Phase G — MultiplayerPlayingScene Client Rendering
 
