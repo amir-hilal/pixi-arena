@@ -21,38 +21,39 @@ It supersedes scattered notes in `multiplayer-architecture.md` where the two con
 
 ## Current Status
 
-Phases A through F and the Phase I movement slice are complete:
+Phases A through F and Phase I.4 are complete:
 
 - Shared constants, types, and pure simulation functions exist under `src/shared/`.
 - `Player` and `Enemy` are Pixi view wrappers over `PlayerState` and `EnemyState`.
 - `SocketClient` exists as a typed Socket.IO transport wrapper.
 - `HomeScene` offers Single Player and Multiplayer.
 - `MultiplayerMenuScene` stores display name, shows Create Lobby / Join Lobby / Back, connects through `Game.ts`, and transitions to `LobbyScene` on `lobby:state`.
-- `server/` owns lobby state, match state, player input, server-side player movement, and `match:snapshot` broadcasting.
+- `server/` owns lobby state, match state, player input, movement, enemies, damage, eliminations, winner detection, survival scoring, `match:snapshot`, and `match:finished`.
 - `LobbyScene` renders from server `lobby:state`, supports host start, leave, countdown, errors, and transitions to `MultiplayerPlayingScene`.
-- `MultiplayerPlayingScene` sends input and renders player positions from `match:snapshot` only.
-- Enemies, damage/collisions, eliminations, winner/game over logic, match results, interpolation, Firebase, and persistence do not exist yet.
+- `MultiplayerPlayingScene` sends input, renders players/enemies from `match:snapshot`, stops input after elimination/finish, and shows a minimal match-finished placeholder.
+- Same-tick eliminations use one deterministic ranking policy: survival time first, then lobby/player insertion order.
+- Polished MatchResultsScene/results UI, interpolation, Firebase, leaderboard, and persistence do not exist yet.
 
 ## Current Multiplayer State
 
 - Lobby flow is fully functional using the local Socket.IO server.
 - Client is fully server-state-driven via `lobby:state`.
 - Scene transitions work: MultiplayerMenu → Lobby → MultiplayerPlaying.
-- Server owns match state, player positions, player input processing, and movement snapshots.
-- MultiplayerPlayingScene renders players from `match:snapshot` only.
-- No enemies, damage, winner logic, interpolation, Firebase, or persistence exist yet.
-- `survivalTimeSeconds` is not updated yet.
+- Server owns match state, movement, enemies, damage, eliminations, winner detection, survival scoring, and `match:finished`.
+- MultiplayerPlayingScene renders players/enemies from `match:snapshot` and shows only a minimal match-finished placeholder.
+- Same-tick eliminations use one deterministic ranking policy: survival time first, then lobby/player insertion order.
+- Solo lobby start remains dev-only behavior for local testing.
+- No polished MatchResultsScene, interpolation, Firebase, leaderboard, or persistence exists yet.
 - Match state is currently stored inside internal lobby state and may later be separated from public lobby payloads.
 
 ## Current Next Step
 
-Implement server-owned enemies and enemy snapshots.
+Implement MatchResultsScene and transition from MultiplayerPlayingScene.
 
 ## Current Risk
 
-The current server-authoritative slice only simulates player movement.
-Enemies, damage/collisions, eliminations, winner/game over logic, match results, and persistence still need to be implemented server-side.
-If the event contract is violated during Phase I, client scenes may require refactoring.
+The server now emits `match:finished`, but the client only shows a placeholder.
+MatchResultsScene, rematch/back-to-lobby UX, Firebase persistence, leaderboard, and production deployment are still pending.
 
 ---
 
@@ -91,10 +92,10 @@ MatchResultsScene
 | `src/api/SocketClient.ts` | Typed Socket.IO client wrapper — complete |
 | `src/game/scenes/MultiplayerMenuScene.ts` | Display name input, Create / Join UI — complete |
 | `src/game/scenes/LobbyScene.ts` | Player list, host controls, leave button — complete |
-| `src/game/scenes/MultiplayerPlayingScene.ts` | Sends input and renders players from `match:snapshot`; enemy rendering comes next |
-| `src/game/scenes/MatchResultsScene.ts` | Ranked results, back to lobby / home |
+| `src/game/scenes/MultiplayerPlayingScene.ts` | Sends input, renders players/enemies from `match:snapshot`, and shows minimal match-finished placeholder |
+| `src/game/scenes/MatchResultsScene.ts` | Ranked results, back to lobby / home — pending |
 | `src/shared/` | Constants, types, simulation (see Part 2) — complete |
-| `server/` | Authoritative movement slice complete; enemies/damage/results still pending |
+| `server/` | Authoritative movement, enemies, damage, eliminations, winner detection, and `match:finished` complete; results UI/persistence pending |
 
 **Modified existing files:**
 - `src/game/scenes/HomeScene.ts` — Single Player / Multiplayer mode buttons complete
@@ -609,21 +610,18 @@ interface LobbyState {
 5. ✅ Apply `player:input` events to `PlayerState` via `applyPlayerInput` + `clampPlayerToBounds`.
 6. ✅ Broadcast `match:snapshot` each tick with authoritative player positions.
 7. ✅ Render local and remote players from snapshots in `MultiplayerPlayingScene`.
-8. Pending: update `survivalTimeSeconds`.
-9. Pending: separate internal match state from public lobby payloads if the lobby contract needs a stricter boundary.
-10. Pending: step enemies via `stepEnemyTowardTarget`; spawn enemies via `selectSpawnPosition`.
-11. Pending: resolve collisions via `circleRectPushback` + `collectEnemyCollisions` + `applyDamage`.
-12. Pending: emit `player:eliminated`.
-13. Pending: detect winner via `computeWinner`; emit `match:finished`.
-14. Pending: produce match results for `MatchResultsScene`.
+8. ✅ Update `survivalTimeSeconds` and survival score during the match.
+9. ✅ Step enemies via shared enemy behavior helpers and spawn enemies on the server.
+10. ✅ Include enemies in `match:snapshot` and render enemies from snapshots on the client.
+11. ✅ Resolve enemy-player collisions via shared damage helpers.
+12. ✅ Emit `player:eliminated`.
+13. ✅ Detect winner via `computeWinner`; emit `match:finished` once.
+14. ✅ Produce `MatchResult` payload for `match:finished`.
+15. Pending: separate internal match state from public lobby payloads if the lobby contract needs a stricter boundary.
 
-### Phase I Next Slice — Server-Owned Enemies ← CURRENT NEXT PHASE
+Same-tick eliminations use the same deterministic ranking policy for `player:eliminated` and final `MatchResult.players`: survival time first, then lobby/player insertion order.
 
-1. Add enemies to server-owned `MatchState`.
-2. Spawn enemies on the server.
-3. Step enemies on the server.
-4. Include enemies in `match:snapshot`.
-5. Render enemies from snapshots on the client.
+Solo lobby start remains dev-only behavior for local testing. Production should enforce at least two players before `lobby:startMatch`.
 
 ### Phase G — MultiplayerPlayingScene Client Rendering
 
@@ -633,10 +631,10 @@ interface LobbyState {
 4. Enemies rendered from `match:snapshot.enemies`.
 5. Each frame: read local `InputState` from `InputManager`/`VirtualJoystick`; emit `player:input`.
 6. On `player:eliminated` for local player: show elimination overlay.
-7. On `match:finished`: navigate to `MatchResultsScene`.
+7. On `match:finished`: currently shows a minimal placeholder; next step is transition to `MatchResultsScene`.
 8. No client-side movement prediction in v1 — local player position comes from server snapshots only.
 
-### Phase H — MatchResultsScene
+### Phase H — MatchResultsScene ← CURRENT NEXT PHASE
 
 1. Display ranked player results from `MatchResult.players` (sorted by `rank`).
 2. Highlight winner row.

@@ -4,9 +4,9 @@
 
 This roadmap is a high-level product roadmap. For multiplayer implementation details, `docs/multiplayer-implementation-plan.md` is authoritative.
 
-Single-player stabilization, world/camera work, shared simulation extraction, entity state/view wrappers, SocketClient, the Home/Multiplayer menu split, the local Socket.IO server, LobbyScene, and the Phase I authoritative movement slice are complete. The current next step is to implement server-owned enemies and enemy snapshots.
+Single-player stabilization, world/camera work, shared simulation extraction, entity state/view wrappers, SocketClient, the Home/Multiplayer menu split, the local Socket.IO server, LobbyScene, and Phase I.4 authoritative match lifecycle are complete. The current next step is to implement MatchResultsScene and transition from MultiplayerPlayingScene.
 
-Current risk: the server currently simulates player movement only. Enemies, damage/collisions, eliminations, winner/game over logic, match results, and persistence still need to be implemented server-side.
+Current risk: the server now emits `match:finished`, but the client only shows a placeholder. MatchResultsScene, rematch/back-to-lobby UX, Firebase persistence, leaderboard, and production deployment are still pending.
 
 ## Phase 1: Current Single-Player Stabilization
 
