@@ -2,9 +2,11 @@ import { SocketClient } from '../../api/SocketClient';
 import { GameOverScene } from '../scenes/GameOverScene';
 import { HomeScene } from '../scenes/HomeScene';
 import { LobbyScene } from '../scenes/LobbyScene';
+import { MatchResultsScene } from '../scenes/MatchResultsScene';
 import {
   MultiplayerMenuScene,
   type LobbyStatePayload,
+  type MatchFinishedPayload,
   type MatchStartedPayload,
   type MultiplayerSocketClient,
 } from '../scenes/MultiplayerMenuScene';
@@ -30,6 +32,7 @@ export class Game {
   private initializationPromise: Promise<void> | null = null;
   private isInitialized = false;
   private sceneManager: SceneManager | null = null;
+  private latestLobbyState: LobbyStatePayload | null = null;
 
   public async initialize(container: HTMLElement): Promise<void> {
     if (this.initializationPromise !== null) {
@@ -126,6 +129,8 @@ export class Game {
   };
 
   private readonly showLobbyScene = (state: LobbyStatePayload): void => {
+    this.latestLobbyState = state;
+
     this.sceneManager?.setScene(
       new LobbyScene(
         this.renderer,
@@ -147,6 +152,26 @@ export class Game {
         this.inputManager,
         this.socketClient,
         match,
+        this.showMatchResultsScene,
+      ),
+    );
+  };
+
+  private readonly showMatchResultsScene = (
+    payload: MatchFinishedPayload,
+    lobbyState: LobbyStatePayload | null,
+  ): void => {
+    this.latestLobbyState = lobbyState ?? this.latestLobbyState;
+
+    this.sceneManager?.setScene(
+      new MatchResultsScene(
+        this.renderer,
+        this.audioManager,
+        this.socketClient,
+        payload.result,
+        this.latestLobbyState,
+        this.showLobbyScene,
+        this.showHomeScene,
       ),
     );
   };
