@@ -1,5 +1,6 @@
 import { Text } from 'pixi.js';
 import type { SocketClient } from '../../api/SocketClient';
+import type { InputState, MatchSnapshot } from '../../shared/types/index';
 import type { AudioManager } from '../core/AudioManager';
 import type { Renderer } from '../core/Renderer';
 import type { Scene } from './Scene';
@@ -28,12 +29,7 @@ export interface MatchCountdownPayload {
 
 export interface MatchStartedPayload {
   matchId: string;
-  initialState: {
-    tick: number;
-    players: [];
-    enemies: [];
-    elapsedSeconds: number;
-  };
+  initialState: MatchSnapshot;
 }
 
 interface MultiplayerIncomingEvents {
@@ -41,6 +37,7 @@ interface MultiplayerIncomingEvents {
   'lobby:error': LobbyErrorPayload;
   'match:countdown': MatchCountdownPayload;
   'match:started': MatchStartedPayload;
+  'match:snapshot': MatchSnapshot;
 }
 
 interface MultiplayerOutgoingEvents {
@@ -48,6 +45,7 @@ interface MultiplayerOutgoingEvents {
   'lobby:join': { lobbyCode: string; playerName: string };
   'lobby:leave': undefined;
   'lobby:startMatch': undefined;
+  'player:input': InputState;
 }
 
 export type MultiplayerSocketClient = SocketClient<

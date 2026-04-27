@@ -1,3 +1,11 @@
+import type {
+  EnemyState,
+  InputState,
+  MatchSnapshot,
+  MatchState,
+  PlayerState,
+} from '../src/shared/types/index.js';
+
 export type LobbyStatus = 'waiting' | 'countdown' | 'playing';
 
 export interface LobbyPlayer {
@@ -12,6 +20,7 @@ export interface LobbyState {
   players: LobbyPlayer[];
   status: LobbyStatus;
   maxPlayers: 4;
+  match?: ServerMatchState;
 }
 
 export interface LobbyCreatePayload {
@@ -33,10 +42,14 @@ export interface MatchCountdownPayload {
 
 export interface MatchStartedPayload {
   matchId: string;
-  initialState: {
-    tick: number;
-    players: [];
-    enemies: [];
-    elapsedSeconds: number;
-  };
+  initialState: MatchSnapshot;
+}
+
+export type MatchSnapshotPayload = MatchSnapshot;
+
+export interface PlayerInputPayload extends InputState {}
+
+export interface ServerMatchState extends MatchState {
+  players: PlayerState[];
+  enemies: EnemyState[];
 }

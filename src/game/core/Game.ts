@@ -12,6 +12,7 @@ import { MultiplayerPlayingScene } from '../scenes/MultiplayerPlayingScene';
 import { PlayingScene } from '../scenes/PlayingScene';
 import { SceneManager } from '../scenes/SceneManager';
 import { AudioManager } from './AudioManager';
+import { InputManager } from './InputManager';
 import { Loop } from './Loop';
 import { Renderer } from './Renderer';
 
@@ -19,6 +20,7 @@ const DEFAULT_SOCKET_URL = 'http://localhost:3001';
 
 export class Game {
   private readonly audioManager = new AudioManager();
+  private readonly inputManager = new InputManager();
   private readonly renderer = new Renderer();
   private readonly socketClient: MultiplayerSocketClient = new SocketClient();
   private readonly loop = new Loop((deltaSeconds) => {
@@ -140,7 +142,12 @@ export class Game {
     match: MatchStartedPayload,
   ): void => {
     this.sceneManager?.setScene(
-      new MultiplayerPlayingScene(this.renderer, match),
+      new MultiplayerPlayingScene(
+        this.renderer,
+        this.inputManager,
+        this.socketClient,
+        match,
+      ),
     );
   };
 

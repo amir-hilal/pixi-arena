@@ -1,78 +1,162 @@
-import { Text } from 'pixi.js';
+import { Graphics, Text } from 'pixi.js';
+import { PLAYER_RADIUS } from '../../shared/constants/player';
+import { WORLD_WIDTH } from '../../shared/constants/world';
+import type { MatchSnapshot, PlayerState } from '../../shared/types/index';
+import type { InputManager } from '../core/InputManager';
 import type { Renderer } from '../core/Renderer';
-import type { MatchStartedPayload } from './MultiplayerMenuScene';
+import type {
+  MatchStartedPayload,
+  MultiplayerSocketClient,
+} from './MultiplayerMenuScene';
 import type { Scene } from './Scene';
 
-const TITLE_TEXT = 'Multiplayer Match';
-const PLACEHOLDER_TEXT = 'Match scene placeholder';
-const TITLE_TEXT_SIZE = 34;
-const BODY_TEXT_SIZE = 18;
-const TITLE_Y_RATIO = 0.42;
-const BODY_TEXT_Y_OFFSET = 48;
+const LOCAL_PLAYER_COLOR = 0x4fd1c5;
+const REMOTE_PLAYER_COLOR = 0xfacc15;
 const TEXT_COLOR = 0xffffff;
 const MUTED_TEXT_COLOR = 0xcbd5e1;
+const TITLE_TEXT_SIZE = 18;
+const STATUS_TEXT_SIZE = 14;
+const WORLD_MARGIN = 32;
 
 export class MultiplayerPlayingScene implements Scene {
-  private titleText: Text | null = null;
-  private matchText: Text | null = null;
+  private readonly playerRenderables = new Map<string, Graphics>();
+  private statusText: Text | null = null;
+  private tickText: Text | null = null;
+  private latestSnapshot: MatchSnapshot;
 
   public constructor(
     private readonly renderer: Renderer,
-    private readonly match: MatchStartedPayload,
-  ) {}
-
-  public initialize(): void {
-    this.titleText = this.createCenteredText(TITLE_TEXT, TITLE_TEXT_SIZE, 0);
-    this.matchText = this.createCenteredText(
-      `${PLACEHOLDER_TEXT}\n${this.match.matchId}`,
-      BODY_TEXT_SIZE,
-      BODY_TEXT_Y_OFFSET,
-      MUTED_TEXT_COLOR,
-    );
-
-    this.renderer.addToStage(this.titleText);
-    this.renderer.addToStage(this.matchText);
+    private readonly inputManager: InputManager,
+    private readonly socketClient: MultiplayerSocketClient,
+    match: MatchStartedPayload,
+  ) {
+    this.latestSnapshot = match.initialState;
   }
 
-  public update(_deltaSeconds: number): void {}
+  public initialize(): void {
+    this.inputManager.initialize();
+    this.socketClient.on('match:snapshot', this.handleMatchSnapshot);
 
-  public resize(width: number, height: number): void {
-    const centerY = height * TITLE_Y_RATIO;
+    this.statusText = new Text({
+      style: {
+        fill: TEXT_COLOR,
+        fontSize: TITLE_TEXT_SIZE,
+      },
+      text: 'Multiplayer Match',
+    });
+    this.tickText = new Text({
+      style: {
+        fill: MUTED_TEXT_COLOR,
+        fontSize: STATUS_TEXT_SIZE,
+      },
+      text: '',
+    });
 
-    this.titleText?.position.set(width / 2, centerY);
-    this.matchText?.position.set(width / 2, centerY + BODY_TEXT_Y_OFFSET);
+    this.renderer.addToStage(this.statusText);
+    this.renderer.addToStage(this.tickText);
+    this.renderSnapshot();
+  }
+
+  public update(_deltaSeconds: number): void {
+    const direction = this.inputManager.getMovementDirection();
+
+    this.socketClient.emit('player:input', {
+      dx: direction.x,
+      dy: direction.y,
+    });
+  }
+
+  public resize(width: number, _height: number): void {
+    this.statusText?.position.set(WORLD_MARGIN, WORLD_MARGIN);
+    this.tickText?.position.set(WORLD_MARGIN, WORLD_MARGIN + 26);
+    this.renderPlayers(width);
   }
 
   public destroy(): void {
-    this.destroyText(this.matchText);
-    this.destroyText(this.titleText);
-    this.matchText = null;
-    this.titleText = null;
+    this.socketClient.off('match:snapshot', this.handleMatchSnapshot);
+    this.inputManager.destroy();
+
+    for (const renderable of this.playerRenderables.values()) {
+      this.renderer.removeFromStage(renderable);
+      renderable.destroy();
+    }
+
+    this.playerRenderables.clear();
+    this.destroyText(this.tickText);
+    this.destroyText(this.statusText);
+    this.tickText = null;
+    this.statusText = null;
   }
 
-  private createCenteredText(
-    text: string,
-    fontSize: number,
-    yOffset: number,
-    fill = TEXT_COLOR,
-  ): Text {
-    const viewportSize = this.renderer.getViewportSize();
-    const displayText = new Text({
-      anchor: 0.5,
-      style: {
-        align: 'center',
-        fill,
-        fontSize,
-      },
-      text,
-    });
+  private readonly handleMatchSnapshot = (snapshot: MatchSnapshot): void => {
+    this.latestSnapshot = snapshot;
+    this.renderSnapshot();
+  };
 
-    displayText.position.set(
-      viewportSize.width / 2,
-      viewportSize.height * TITLE_Y_RATIO + yOffset,
+  private renderSnapshot(): void {
+    if (this.tickText !== null) {
+      this.tickText.text = `Tick ${this.latestSnapshot.tick}`;
+    }
+
+    this.syncPlayerRenderables();
+    this.renderPlayers(this.renderer.getViewportSize().width);
+  }
+
+  private syncPlayerRenderables(): void {
+    const snapshotPlayerIds = new Set(
+      this.latestSnapshot.players.map((player) => player.id),
     );
 
-    return displayText;
+    for (const [playerId, renderable] of this.playerRenderables.entries()) {
+      if (!snapshotPlayerIds.has(playerId)) {
+        this.renderer.removeFromStage(renderable);
+        renderable.destroy();
+        this.playerRenderables.delete(playerId);
+      }
+    }
+
+    for (const player of this.latestSnapshot.players) {
+      if (!this.playerRenderables.has(player.id)) {
+        const color =
+          player.id === this.socketClient.getId()
+            ? LOCAL_PLAYER_COLOR
+            : REMOTE_PLAYER_COLOR;
+        const renderable = new Graphics()
+          .circle(0, 0, PLAYER_RADIUS)
+          .fill(color);
+
+        this.playerRenderables.set(player.id, renderable);
+        this.renderer.addToStage(renderable);
+      }
+    }
+  }
+
+  private renderPlayers(viewportWidth: number): void {
+    const scale = this.getWorldScale(viewportWidth);
+
+    for (const player of this.latestSnapshot.players) {
+      this.renderPlayer(player, scale);
+    }
+  }
+
+  private renderPlayer(player: PlayerState, scale: number): void {
+    const renderable = this.playerRenderables.get(player.id);
+
+    if (renderable === undefined) {
+      return;
+    }
+
+    renderable.position.set(
+      WORLD_MARGIN + player.position.x * scale,
+      WORLD_MARGIN + 64 + player.position.y * scale,
+    );
+    renderable.scale.set(scale);
+  }
+
+  private getWorldScale(viewportWidth: number): number {
+    const availableWidth = Math.max(1, viewportWidth - WORLD_MARGIN * 2);
+
+    return Math.min(1, availableWidth / WORLD_WIDTH);
   }
 
   private destroyText(text: Text | null): void {

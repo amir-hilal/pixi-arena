@@ -12,13 +12,23 @@ import {
   removePlayer,
   setLobbyStatus,
 } from './lobbyManager.js';
+import {
+  getMatchSnapshot,
+  initializeMatch,
+  removePlayerFromMatch,
+  startMatchLoop,
+  stopMatchLoop,
+  storePlayerInput,
+} from './matchManager.js';
 import type {
   LobbyCreatePayload,
   LobbyErrorPayload,
   LobbyJoinPayload,
   LobbyState,
   MatchCountdownPayload,
+  MatchSnapshotPayload,
   MatchStartedPayload,
+  PlayerInputPayload,
 } from './types.js';
 
 const PORT = Number(process.env.PORT ?? 3001);
@@ -116,7 +126,17 @@ io.on('connection', (socket) => {
     }
 
     console.log(`start match: ${lobby.lobbyCode} host=${socket.id}`);
-    startMockMatch(lobby);
+    startMatchCountdown(lobby);
+  });
+
+  socket.on('player:input', (payload: PlayerInputPayload) => {
+    const lobby = getLobbyForSocket(socket.id);
+
+    if (lobby === null || lobby.status !== 'playing') {
+      return;
+    }
+
+    storePlayerInput(lobby.lobbyCode, socket.id, payload);
   });
 
   socket.on('disconnect', () => {
@@ -141,17 +161,21 @@ function leaveCurrentLobby(
   }
 
   const lobbyCode = lobby.lobbyCode;
+  const match = lobby.match;
   const updatedLobby = removePlayer(socket.id);
   socket.leave(lobbyCode);
+  removePlayerFromMatch(lobbyCode, socket.id, match);
 
   console.log(`lobby ${reason}: ${lobbyCode} player=${socket.id}`);
 
   if (updatedLobby !== null) {
     emitLobbyState(updatedLobby);
+  } else {
+    stopMatchLoop(lobbyCode);
   }
 }
 
-function startMockMatch(lobby: LobbyState): void {
+function startMatchCountdown(lobby: LobbyState): void {
   const updatedLobby = setLobbyStatus(lobby.lobbyCode, 'countdown');
 
   if (updatedLobby === null) {
@@ -179,8 +203,13 @@ function startMockMatch(lobby: LobbyState): void {
       return;
     }
 
+    const match = initializeMatch(playingLobby);
+
     emitLobbyState(playingLobby);
-    emitMatchStarted(playingLobby.lobbyCode);
+    emitMatchStarted(playingLobby.lobbyCode, match.matchId, getMatchSnapshot(match));
+    startMatchLoop(playingLobby, (snapshot) => {
+      emitMatchSnapshot(playingLobby.lobbyCode, snapshot);
+    });
   }, 1000);
 }
 
@@ -201,16 +230,22 @@ function emitCountdown(lobbyCode: string, secondsRemaining: number): void {
   io.to(lobbyCode).emit('match:countdown', payload);
 }
 
-function emitMatchStarted(lobbyCode: string): void {
+function emitMatchStarted(
+  lobbyCode: string,
+  matchId: string,
+  initialState: MatchSnapshotPayload,
+): void {
   const payload: MatchStartedPayload = {
-    matchId: `mock-${Date.now().toString(36)}`,
-    initialState: {
-      tick: 0,
-      players: [],
-      enemies: [],
-      elapsedSeconds: 0,
-    },
+    matchId,
+    initialState,
   };
 
   io.to(lobbyCode).emit('match:started', payload);
+}
+
+function emitMatchSnapshot(
+  lobbyCode: string,
+  snapshot: MatchSnapshotPayload,
+): void {
+  io.to(lobbyCode).emit('match:snapshot', snapshot);
 }
