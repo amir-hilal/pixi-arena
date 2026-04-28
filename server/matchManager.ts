@@ -211,6 +211,7 @@ function stepMatch(lobby: LobbyState): MatchTickResult | null {
 
   spawnEnemies(lobby, match);
   moveEnemies(match);
+  resolveEnemyObstacleCollisions(match);
   const eliminations = resolveEnemyCollisions(match);
   cullEnemies(match);
 
@@ -267,6 +268,25 @@ function cullEnemies(match: ServerMatchState): void {
   match.enemies = match.enemies.filter((enemy) =>
     isEnemyWithinValidBounds(enemy.position, bounds, margin),
   );
+}
+
+function resolveEnemyObstacleCollisions(match: ServerMatchState): void {
+  for (const enemy of match.enemies) {
+    for (const obstacle of worldState.obstacles) {
+      const pushback = circleRectPushback(
+        enemy.position,
+        ENEMY_RADIUS,
+        obstacle.rect,
+      );
+
+      if (pushback === null) {
+        continue;
+      }
+
+      enemy.position.x += pushback.x;
+      enemy.position.y += pushback.y;
+    }
+  }
 }
 
 function resolveEnemyCollisions(
