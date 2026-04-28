@@ -34,6 +34,7 @@ export class MultiplayerMatchResultsScene implements Scene {
   private homeText: Text | null = null;
   private statusText: Text | null = null;
   private latestLobbyState: LobbyStatePayload | null;
+  private isReturningToLobby = false;
 
   public constructor(
     private readonly renderer: Renderer,
@@ -209,20 +210,28 @@ export class MultiplayerMatchResultsScene implements Scene {
   private readonly handleLobbyState = (state: LobbyStatePayload): void => {
     this.latestLobbyState = state;
     this.updateStatus();
+
+    if (!this.isReturningToLobby) {
+      return;
+    }
+
+    const localPlayerId = this.socketClient.getId();
+    const localPlayer = state.players.find((player) => player.id === localPlayerId);
+
+    if (state.status !== 'waiting' || localPlayer?.location !== 'lobby') {
+      return;
+    }
+
+    this.isReturningToLobby = false;
+    this.onBackToLobby(state);
   };
 
   private readonly handleBackToLobby = (): void => {
     this.audioManager.unlock();
 
-    if (
-      this.latestLobbyState === null ||
-      this.latestLobbyState.status !== 'waiting'
-    ) {
-      this.updateStatus();
-      return;
-    }
-
-    this.onBackToLobby(this.latestLobbyState);
+    this.isReturningToLobby = true;
+    this.socketClient.emit('lobby:return', undefined);
+    this.updateStatus();
   };
 
   private readonly handleHome = (): void => {

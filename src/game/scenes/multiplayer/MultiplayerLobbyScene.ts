@@ -29,6 +29,8 @@ const TEXT_COLOR = 0xffffff;
 const MUTED_TEXT_COLOR = 0xcbd5e1;
 const ERROR_TEXT_COLOR = 0xfca5a5;
 const COUNTDOWN_TEXT_COLOR = 0xfacc15;
+const DISABLED_TEXT_COLOR = 0x64748b;
+const WAITING_FOR_RETURN_TEXT = 'Waiting for all players to return...';
 
 export class MultiplayerLobbyScene implements Scene {
   private titleText: Text | null = null;
@@ -198,6 +200,7 @@ export class MultiplayerLobbyScene implements Scene {
   private renderState(): void {
     const playerCount = this.latestState.players.length;
     const isHost = this.isLocalPlayerHost();
+    const canStartMatch = this.canStartMatch();
 
     if (this.lobbyCodeText !== null) {
       this.lobbyCodeText.text = `Code: ${this.latestState.lobbyCode}`;
@@ -209,21 +212,51 @@ export class MultiplayerLobbyScene implements Scene {
 
     if (this.playersText !== null) {
       this.playersText.text = this.latestState.players
-        .map((player) => `${player.name}${player.isHost ? ' (Host)' : ''}`)
+        .map((player) =>
+          `${player.name}${player.isHost ? ' (Host)' : ''} - ${this.getPlayerLocationLabel(player.location)}`,
+        )
         .join('\n');
     }
 
     if (this.startMatchText !== null) {
-      this.startMatchText.visible = isHost && this.latestState.status === 'waiting';
+      const isWaiting = this.latestState.status === 'waiting';
+
+      this.startMatchText.visible = isHost;
+      this.startMatchText.style.fill =
+        isWaiting && canStartMatch ? TEXT_COLOR : DISABLED_TEXT_COLOR;
+      this.startMatchText.cursor =
+        isWaiting && canStartMatch ? 'pointer' : 'default';
     }
 
     if (this.statusText !== null) {
-      this.statusText.text =
-        this.latestState.status === 'waiting'
-          ? 'Waiting for players...'
-          : `Status: ${this.latestState.status}`;
+      if (this.latestState.status !== 'waiting') {
+        this.statusText.text = `Status: ${this.latestState.status}`;
+      } else if (!canStartMatch) {
+        this.statusText.text = WAITING_FOR_RETURN_TEXT;
+      } else {
+        this.statusText.text = 'Waiting for players...';
+      }
+
       this.statusText.style.fill = MUTED_TEXT_COLOR;
     }
+  }
+
+  private canStartMatch(): boolean {
+    return this.latestState.players.every(
+      (player) => !player.isConnected || player.location === 'lobby',
+    );
+  }
+
+  private getPlayerLocationLabel(location: LobbyStatePayload['players'][number]['location']): string {
+    if (location === 'lobby') {
+      return 'In lobby';
+    }
+
+    if (location === 'results') {
+      return 'In results';
+    }
+
+    return 'Playing';
   }
 
   private isLocalPlayerHost(): boolean {
@@ -272,6 +305,11 @@ export class MultiplayerLobbyScene implements Scene {
     this.audioManager.unlock();
 
     if (!this.isLocalPlayerHost()) {
+      return;
+    }
+
+    if (!this.canStartMatch()) {
+      this.setError(WAITING_FOR_RETURN_TEXT);
       return;
     }
 

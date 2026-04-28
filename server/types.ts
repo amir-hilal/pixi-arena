@@ -8,12 +8,14 @@ import type {
 } from '../src/shared/types/index.js';
 
 export type LobbyStatus = 'waiting' | 'countdown' | 'playing' | 'finished';
+export type LobbyPlayerLocation = 'lobby' | 'playing' | 'results';
 
 export interface LobbyPlayer {
   id: string;
   name: string;
   isHost: boolean;
   isConnected: boolean;
+  location: LobbyPlayerLocation;
 }
 
 export interface LobbyState {
@@ -32,6 +34,8 @@ export interface LobbyJoinPayload {
   lobbyCode: string;
   playerName: string;
 }
+
+export interface LobbyReturnPayload {}
 
 export interface LobbyErrorPayload {
   message: string;

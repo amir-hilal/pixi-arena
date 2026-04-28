@@ -72,11 +72,15 @@ interface MatchTickResult {
 }
 
 export function initializeMatch(lobby: LobbyState): ServerMatchState {
+  const matchPlayers = lobby.players.filter(
+    (player) => player.isConnected && player.location === 'lobby',
+  );
+
   const match: ServerMatchState = {
     matchId: `match-${Date.now().toString(36)}`,
     phase: 'playing',
     tick: 0,
-    players: lobby.players.map((player, index) =>
+    players: matchPlayers.map((player, index) =>
       createPlayerState(player.id, index),
     ),
     enemies: [],

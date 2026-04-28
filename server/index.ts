@@ -4,13 +4,16 @@ import { createServer } from 'node:http';
 import { Server } from 'socket.io';
 import type { Socket } from 'socket.io';
 import {
+  areAllConnectedPlayersInLobby,
   createLobby,
   getLobby,
   getLobbyForSocket,
   isHost,
   joinLobby,
   removePlayer,
+  setAllPlayerLocations,
   setLobbyStatus,
+  setPlayerLocation,
 } from './lobbyManager.js';
 import {
   getMatchSnapshot,
@@ -127,8 +130,27 @@ io.on('connection', (socket) => {
       return;
     }
 
+    if (!areAllConnectedPlayersInLobby(lobby)) {
+      emitLobbyError(
+        socket.id,
+        new Error('All players must return to the lobby before starting.'),
+      );
+      return;
+    }
+
     console.log(`start match: ${lobby.lobbyCode} host=${socket.id}`);
     startMatchCountdown(lobby);
+  });
+
+  socket.on('lobby:return', () => {
+    const lobby = setPlayerLocation(socket.id, 'lobby');
+
+    if (lobby === null) {
+      emitLobbyError(socket.id, new Error('Lobby not found.'));
+      return;
+    }
+
+    emitLobbyState(lobby);
   });
 
   socket.on('player:input', (payload: PlayerInputPayload) => {
@@ -207,6 +229,8 @@ function startMatchCountdown(lobby: LobbyState): void {
 
     const match = initializeMatch(playingLobby);
 
+    setAllPlayerLocations(playingLobby.lobbyCode, 'playing');
+
     emitLobbyState(playingLobby);
     emitMatchStarted(playingLobby.lobbyCode, match.matchId, getMatchSnapshot(match));
     startMatchLoop(
@@ -232,6 +256,7 @@ function finishMatch(lobby: LobbyState, finished: MatchFinishedPayload): void {
   }
 
   console.log(`match finished: ${lobby.lobbyCode} match=${finished.result.matchId}`);
+  setAllPlayerLocations(finishedLobby.lobbyCode, 'results');
   emitLobbyState(finishedLobby);
   emitMatchFinished(finishedLobby.lobbyCode, finished);
 

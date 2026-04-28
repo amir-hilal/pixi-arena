@@ -14,6 +14,7 @@ export interface LobbyPlayerPayload {
   name: string;
   isHost: boolean;
   isConnected: boolean;
+  location: 'lobby' | 'playing' | 'results';
 }
 
 export interface LobbyStatePayload {
@@ -59,6 +60,7 @@ interface MultiplayerOutgoingEvents {
   'lobby:create': { playerName: string };
   'lobby:join': { lobbyCode: string; playerName: string };
   'lobby:leave': undefined;
+  'lobby:return': undefined;
   'lobby:startMatch': undefined;
   'player:input': InputState;
 }

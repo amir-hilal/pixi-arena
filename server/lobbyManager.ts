@@ -1,4 +1,4 @@
-import type { LobbyState } from './types.js';
+import type { LobbyPlayerLocation, LobbyState } from './types.js';
 
 const MAX_PLAYERS = 4;
 const LOBBY_CODE_LENGTH = 4;
@@ -19,6 +19,7 @@ export function createLobby(socketId: string, playerName: string): LobbyState {
         name: normalizePlayerName(playerName),
         isHost: true,
         isConnected: true,
+        location: 'lobby',
       },
     ],
     status: 'waiting',
@@ -59,6 +60,7 @@ export function joinLobby(
     name: normalizePlayerName(playerName),
     isHost: false,
     isConnected: true,
+    location: 'lobby',
   });
   socketLobbyCodes.set(socketId, lobby.lobbyCode);
 
@@ -125,6 +127,49 @@ export function setLobbyStatus(
 
   lobby.status = status;
   return lobby;
+}
+
+export function setPlayerLocation(
+  socketId: string,
+  location: LobbyPlayerLocation,
+): LobbyState | null {
+  const lobby = getLobbyForSocket(socketId);
+
+  if (lobby === null) {
+    return null;
+  }
+
+  const player = lobby.players.find((candidate) => candidate.id === socketId);
+
+  if (player === undefined) {
+    return lobby;
+  }
+
+  player.location = location;
+  return lobby;
+}
+
+export function setAllPlayerLocations(
+  lobbyCode: string,
+  location: LobbyPlayerLocation,
+): LobbyState | null {
+  const lobby = getLobby(lobbyCode);
+
+  if (lobby === null) {
+    return null;
+  }
+
+  for (const player of lobby.players) {
+    player.location = location;
+  }
+
+  return lobby;
+}
+
+export function areAllConnectedPlayersInLobby(lobby: LobbyState): boolean {
+  return lobby.players
+    .filter((player) => player.isConnected)
+    .every((player) => player.location === 'lobby');
 }
 
 function getLobbyOrThrow(lobbyCode: string): LobbyState {
