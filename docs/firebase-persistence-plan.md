@@ -71,14 +71,20 @@ Future production hardening:
 
 ```text
 VITE_APP_ENV=
+VITE_SOCKET_SERVER_URL=
 VITE_FIREBASE_API_KEY=
 VITE_FIREBASE_AUTH_DOMAIN=
 VITE_FIREBASE_PROJECT_ID=
 VITE_FIREBASE_STORAGE_BUCKET=
 VITE_FIREBASE_MESSAGING_SENDER_ID=
 VITE_FIREBASE_APP_ID=
-VITE_FIREBASE_ENVIRONMENT=local
+VITE_FIREBASE_ENVIRONMENT=local (optional if VITE_APP_ENV is set)
 ```
+
+Collection name env vars are not used in the current implementation. Repositories write to fixed collections:
+
+- `leaderboard`
+- `matchResults`
 
 ## Security Rules Notes
 
@@ -111,3 +117,24 @@ Based on current repository queries:
 Additional index required by current player leaderboard query:
 
 - `leaderboard`: `environment` ASC, `displayName` ASC, `survivalTimeSeconds` DESC
+
+## Firestore Deployment Runbook
+
+1. Deploy rules from repository root:
+
+```bash
+firebase deploy --only firestore:rules
+```
+
+2. Create/verify all required composite indexes listed above.
+
+3. Verify environment filtering end-to-end:
+
+- set `VITE_FIREBASE_ENVIRONMENT=local` and confirm local reads/writes
+- set `VITE_FIREBASE_ENVIRONMENT=development` (or set only `VITE_APP_ENV=development`) and confirm local data is not returned
+- repeat for `production`
+
+4. Confirm write validation behavior:
+
+- valid writes succeed for `leaderboard` and `matchResults`
+- invalid writes (bad environment/type/field set) are denied by rules

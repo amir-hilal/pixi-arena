@@ -200,7 +200,9 @@ export class Game {
 
 function getSocketUrl(): string {
   return (
-    (import.meta.env.VITE_SOCKET_URL as string | undefined) ??
+    import.meta.env.VITE_SOCKET_SERVER_URL
+    ?? import.meta.env.VITE_SOCKET_URL
+    ??
     DEFAULT_SOCKET_URL
   );
 }

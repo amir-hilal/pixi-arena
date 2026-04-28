@@ -9,7 +9,8 @@
  * - VITE_FIREBASE_STORAGE_BUCKET
  * - VITE_FIREBASE_MESSAGING_SENDER_ID
  * - VITE_FIREBASE_APP_ID
- * - VITE_FIREBASE_ENVIRONMENT: 'local' | 'development' | 'production'
+ * - VITE_FIREBASE_ENVIRONMENT: 'local' | 'development' | 'production' (optional)
+ * - VITE_APP_ENV: 'local' | 'development' | 'production' (fallback if Firebase env is not set)
  */
 
 import { initializeApp } from 'firebase/app';
@@ -77,11 +78,13 @@ export function getFirebaseApp(): FirebaseApp {
  * Defaults to 'local' if not set.
  */
 export function getFirebaseEnvironment(): 'local' | 'development' | 'production' {
-  const env = import.meta.env.VITE_FIREBASE_ENVIRONMENT ?? 'local';
+  const env = import.meta.env.VITE_FIREBASE_ENVIRONMENT
+    ?? import.meta.env.VITE_APP_ENV
+    ?? 'local';
 
   if (env !== 'local' && env !== 'development' && env !== 'production') {
     console.warn(
-      `Invalid VITE_FIREBASE_ENVIRONMENT: "${env}". Defaulting to "local".`,
+      `Invalid environment value: "${env}". Defaulting to "local".`,
     );
     return 'local';
   }
