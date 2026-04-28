@@ -149,6 +149,7 @@ export class HomeScene implements Scene {
   };
 
   private readonly handleLeaderboard = (): void => {
+    this.audioManager.unlock();
     this.onLeaderboard();
   };
 }

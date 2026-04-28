@@ -152,6 +152,9 @@ export class LeaderboardScene implements Scene {
 
       if (!this.isDestroyed && this.rowsText !== null) {
         this.rowsText.text = ERROR_TEXT;
+        if (this.headerText !== null) {
+          this.headerText.visible = false;
+        }
       }
 
       return;
@@ -164,10 +167,6 @@ export class LeaderboardScene implements Scene {
     this.rowsText.text = scores.length === 0
       ? EMPTY_TEXT
       : this.buildRows(scores);
-
-    // Reposition rows text as content height may differ from the loading placeholder
-    const viewport = this.renderer.getViewportSize();
-    this.rowsText.position.set(viewport.width / 2, viewport.height * ROWS_Y_RATIO);
   }
 
   private readonly handleBack = (): void => {
