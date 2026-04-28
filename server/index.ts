@@ -36,6 +36,10 @@ import type {
   PlayerInputPayload,
 } from './types.js';
 
+interface DebugPingPayload {
+  sentAt: number;
+}
+
 const PORT = Number(process.env.PORT ?? 3001);
 const FRONTEND_ORIGIN = process.env.FRONTEND_ORIGIN ?? 'http://localhost:5173';
 const COUNTDOWN_SECONDS = 3;
@@ -171,6 +175,12 @@ io.on('connection', (socket) => {
     }
 
     storePlayerInput(lobby.lobbyCode, socket.id, payload);
+  });
+
+  socket.on('debug:ping', (payload: DebugPingPayload) => {
+    socket.emit('debug:pong', {
+      sentAt: payload.sentAt,
+    });
   });
 
   socket.on('disconnect', () => {

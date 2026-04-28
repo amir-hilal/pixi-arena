@@ -46,6 +46,14 @@ export interface MatchFinishedPayload {
   result: MatchResult;
 }
 
+export interface DebugPingPayload {
+  sentAt: number;
+}
+
+export interface DebugPongPayload {
+  sentAt: number;
+}
+
 interface MultiplayerIncomingEvents {
   'lobby:state': LobbyStatePayload;
   'lobby:error': LobbyErrorPayload;
@@ -54,6 +62,7 @@ interface MultiplayerIncomingEvents {
   'match:snapshot': MatchSnapshot;
   'player:eliminated': PlayerEliminatedPayload;
   'match:finished': MatchFinishedPayload;
+  'debug:pong': DebugPongPayload;
 }
 
 interface MultiplayerOutgoingEvents {
@@ -63,6 +72,7 @@ interface MultiplayerOutgoingEvents {
   'lobby:return': undefined;
   'lobby:startMatch': undefined;
   'player:input': InputState;
+  'debug:ping': DebugPingPayload;
 }
 
 export type MultiplayerSocketClient = SocketClient<

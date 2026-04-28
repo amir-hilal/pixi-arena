@@ -11,6 +11,7 @@ import type { InputDirection, InputManager } from '../../core/InputManager';
 import type { Renderer } from '../../core/Renderer';
 import { VirtualJoystick } from '../../ui/VirtualJoystick';
 import type {
+  DebugPongPayload,
   LobbyStatePayload,
   MatchFinishedPayload,
   MatchStartedPayload,
@@ -44,6 +45,8 @@ const LIVES_TEXT_X = 16;
 const LIVES_TEXT_Y = 68;
 const STATUS_TEXT_X = 16;
 const STATUS_TEXT_Y = 96;
+const DIAGNOSTICS_TEXT_X_OFFSET = 16;
+const DIAGNOSTICS_TEXT_Y = 12;
 const SECONDS_PER_MINUTE = 60;
 const TIMER_PART_PADDING_LENGTH = 2;
 const TIMER_PART_PADDING_VALUE = '0';
@@ -56,6 +59,8 @@ const DAMAGE_SHAKE_FREQUENCY = 70;
 const NEUTRAL_DIRECTION = 0;
 const INTERPOLATION_DELAY_SECONDS = 0.1;
 const MAX_SNAPSHOT_BUFFER = 10;
+const DIAGNOSTICS_TEXT_SIZE = 12;
+const DEBUG_PING_INTERVAL_MS = 2000;
 
 export class MultiplayerPlayingScene implements Scene {
   private readonly camera = new Camera();
@@ -66,6 +71,7 @@ export class MultiplayerPlayingScene implements Scene {
   private timerText: Text | null = null;
   private livesText: Text | null = null;
   private statusText: Text | null = null;
+  private diagnosticsText: Text | null = null;
   private eliminatedText: Text | null = null;
   private virtualJoystick: VirtualJoystick | null = null;
   private readonly snapshotBuffer: MatchSnapshot[] = [];
@@ -79,6 +85,8 @@ export class MultiplayerPlayingScene implements Scene {
   private shakeOffsetX = 0;
   private shakeOffsetY = 0;
   private matchFinished = false;
+  private pingIntervalId: number | null = null;
+  private latestRttMs: number | null = null;
 
   public constructor(
     private readonly renderer: Renderer,
@@ -99,6 +107,7 @@ export class MultiplayerPlayingScene implements Scene {
     this.socketClient.on('player:eliminated', this.handlePlayerEliminated);
     this.socketClient.on('match:finished', this.handleMatchFinished);
     this.socketClient.on('lobby:state', this.handleLobbyState);
+    this.socketClient.on('debug:pong', this.handleDebugPong);
 
     this.worldView = createWorldView(this.renderer);
 
@@ -108,6 +117,13 @@ export class MultiplayerPlayingScene implements Scene {
     this.statusText = createSceneText({
       fill: MUTED_TEXT_COLOR,
       fontSize: STATUS_TEXT_SIZE,
+      text: '',
+    });
+    this.diagnosticsText = createSceneText({
+      align: 'right',
+      anchor: 1,
+      fill: MUTED_TEXT_COLOR,
+      fontSize: DIAGNOSTICS_TEXT_SIZE,
       text: '',
     });
     this.eliminatedText = createSceneText({
@@ -123,8 +139,10 @@ export class MultiplayerPlayingScene implements Scene {
     this.renderer.addToStage(this.timerText);
     this.renderer.addToStage(this.livesText);
     this.renderer.addToStage(this.statusText);
+    this.renderer.addToStage(this.diagnosticsText);
     this.renderer.addToStage(this.eliminatedText);
     this.initializeVirtualJoystick();
+    this.startPingDiagnostics();
     this.renderSnapshot();
     this.resizeViewportUi();
   }
@@ -157,6 +175,7 @@ export class MultiplayerPlayingScene implements Scene {
     this.timerText?.position.set(TIMER_TEXT_X, TIMER_TEXT_Y);
     this.livesText?.position.set(LIVES_TEXT_X, LIVES_TEXT_Y);
     this.statusText?.position.set(STATUS_TEXT_X, STATUS_TEXT_Y);
+    this.diagnosticsText?.position.set(width - DIAGNOSTICS_TEXT_X_OFFSET, DIAGNOSTICS_TEXT_Y);
     this.eliminatedText?.position.set(width / 2, height * 0.32);
     this.updateCamera();
   }
@@ -166,8 +185,10 @@ export class MultiplayerPlayingScene implements Scene {
     this.socketClient.off('player:eliminated', this.handlePlayerEliminated);
     this.socketClient.off('match:finished', this.handleMatchFinished);
     this.socketClient.off('lobby:state', this.handleLobbyState);
+    this.socketClient.off('debug:pong', this.handleDebugPong);
     this.inputManager.destroy();
     this.destroyVirtualJoystick();
+    this.stopPingDiagnostics();
 
     this.playerRenderables.clear();
     this.enemyRenderables.clear();
@@ -175,11 +196,13 @@ export class MultiplayerPlayingScene implements Scene {
     this.worldView = null;
 
     destroySceneText(this.renderer, this.eliminatedText);
+    destroySceneText(this.renderer, this.diagnosticsText);
     destroySceneText(this.renderer, this.statusText);
     destroySceneText(this.renderer, this.livesText);
     destroySceneText(this.renderer, this.timerText);
     destroySceneText(this.renderer, this.scoreText);
     this.eliminatedText = null;
+    this.diagnosticsText = null;
     this.statusText = null;
     this.livesText = null;
     this.timerText = null;
@@ -191,6 +214,7 @@ export class MultiplayerPlayingScene implements Scene {
     this.shakeOffsetY = 0;
     this.snapshotBuffer.length = 0;
     this.renderTimeInitialized = false;
+    this.latestRttMs = null;
   }
 
   private resizeViewportUi(): void {
@@ -434,11 +458,16 @@ export class MultiplayerPlayingScene implements Scene {
     payload: MatchFinishedPayload,
   ): void => {
     this.matchFinished = true;
+    this.stopPingDiagnostics();
     this.onMatchFinished(payload, this.latestLobbyState);
   };
 
   private readonly handleLobbyState = (state: LobbyStatePayload): void => {
     this.latestLobbyState = state;
+  };
+
+  private readonly handleDebugPong = (payload: DebugPongPayload): void => {
+    this.latestRttMs = Math.max(0, performance.now() - payload.sentAt);
   };
 
   private renderSnapshot(): void {
@@ -587,6 +616,56 @@ export class MultiplayerPlayingScene implements Scene {
     if (this.statusText !== null) {
       this.statusText.text = `Players: ${this.latestSnapshot.players.length}  Enemies: ${this.latestSnapshot.enemies.length}`;
     }
+
+    this.updateDiagnosticsOverlay();
+  }
+
+  private startPingDiagnostics(): void {
+    this.sendDebugPing();
+    this.pingIntervalId = window.setInterval(() => {
+      this.sendDebugPing();
+    }, DEBUG_PING_INTERVAL_MS);
+  }
+
+  private stopPingDiagnostics(): void {
+    if (this.pingIntervalId !== null) {
+      window.clearInterval(this.pingIntervalId);
+      this.pingIntervalId = null;
+    }
+  }
+
+  private sendDebugPing(): void {
+    const connectionState = this.socketClient.getConnectionState();
+
+    if (!connectionState.connected || this.matchFinished) {
+      return;
+    }
+
+    this.socketClient.emit('debug:ping', {
+      sentAt: performance.now(),
+    });
+  }
+
+  private updateDiagnosticsOverlay(): void {
+    if (this.diagnosticsText === null) {
+      return;
+    }
+
+    const connectionState = this.socketClient.getConnectionState();
+
+    if (!connectionState.connected) {
+      this.latestRttMs = null;
+    }
+
+    const pingLabel = this.latestRttMs === null
+      ? '--'
+      : Math.round(this.latestRttMs).toString();
+
+    this.diagnosticsText.text = [
+      `Ping: ${pingLabel} ms`,
+      `Transport: ${connectionState.transport ?? 'n/a'}`,
+      `Socket: ${connectionState.connected ? 'connected' : 'disconnected'}`,
+    ].join('\n');
   }
 
   private formatSurvivalTime(totalSeconds: number): string {

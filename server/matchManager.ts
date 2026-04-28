@@ -53,6 +53,7 @@ const TICK_RATE = 30;
 const TICK_INTERVAL_MS = 1000 / TICK_RATE;
 const TICK_DELTA_SECONDS = 1 / TICK_RATE;
 const SPAWN_SPACING = 96;
+const SLOW_TICK_WARNING_THRESHOLD_MS = 75;
 
 const worldState: WorldState = {
   width: WORLD_WIDTH,
@@ -104,8 +105,19 @@ export function startMatchLoop(
   onMatchFinished: (finished: MatchFinishedPayload) => void,
 ): void {
   clearMatchInterval(lobby.lobbyCode);
+  let lastTickTime = Date.now();
 
   const interval = setInterval(() => {
+    const now = Date.now();
+    const tickDeltaMs = now - lastTickTime;
+    lastTickTime = now;
+
+    if (tickDeltaMs > SLOW_TICK_WARNING_THRESHOLD_MS) {
+      console.warn(
+        `[match tick warning] lobby=${lobby.lobbyCode} match=${lobby.match?.matchId ?? 'unknown'} deltaMs=${tickDeltaMs.toFixed(1)} expectedMs=${TICK_INTERVAL_MS.toFixed(1)}`,
+      );
+    }
+
     const result = stepMatch(lobby);
 
     if (result !== null) {

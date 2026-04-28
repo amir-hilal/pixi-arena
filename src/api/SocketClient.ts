@@ -75,6 +75,22 @@ export class SocketClient<
     return this.socket?.id ?? null;
   }
 
+  public getTransportName(): string | null {
+    return this.socket?.io.engine?.transport.name ?? null;
+  }
+
+  public getConnectionState(): {
+    connected: boolean;
+    id: string | null;
+    transport: string | null;
+  } {
+    return {
+      connected: this.isConnected(),
+      id: this.getId(),
+      transport: this.getTransportName(),
+    };
+  }
+
   private getSocket(): UntypedSocket {
     if (this.socket === null) {
       throw new Error('SocketClient is not connected.');
