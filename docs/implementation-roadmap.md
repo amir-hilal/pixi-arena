@@ -4,11 +4,11 @@
 
 This roadmap is a high-level product roadmap. For multiplayer implementation details, `docs/multiplayer-implementation-plan.md` is authoritative.
 
-Single-player stabilization, world/camera work, shared simulation extraction, entity state/view wrappers, SocketClient, the Home/Multiplayer menu split, the local Socket.IO server, LobbyScene, Phase I.4 authoritative match lifecycle, MatchResultsScene, Phase G MultiplayerPlayingScene world-rendering stabilization, and Phase J client-side snapshot interpolation are complete. Resolution-dependent enemy spawn fairness has been resolved in world-space simulation by removing viewport-based spawn logic. Lobby readiness and post-match state handling are implemented with authoritative per-player location (`lobby` | `playing` | `results`) and `lobby:return`-based re-entry. Smooth rendering via client-side snapshot interpolation with buffering, render clock capping, and entity fallbacks is now in place.
+Single-player stabilization, world/camera work, shared simulation extraction, entity state/view wrappers, SocketClient, the Home/Multiplayer menu split, the local Socket.IO server, LobbyScene, Phase I.4 authoritative match lifecycle, MatchResultsScene, Phase G MultiplayerPlayingScene world-rendering stabilization, and Phase J client-side snapshot interpolation are complete. Resolution-dependent enemy spawn fairness has been resolved in world-space simulation by removing viewport-based spawn logic. Lobby readiness and post-match state handling are implemented with authoritative per-player location (`lobby` | `playing` | `results`) and `lobby:return`-based re-entry. Smooth rendering via client-side snapshot interpolation with buffering, render clock capping, and entity fallbacks is now in place. Firebase initialization and Firestore repositories are implemented, match results and per-player leaderboard scores now persist after match finish, and HomeScene includes a repository-driven, read-only LeaderboardScene for top scores.
 
-Current next step: implement Firebase persistence for match results and leaderboard scores.
+Current next step: draft Firestore security rules.
 
-Current risk: the full multiplayer MVP loop with smooth client-side interpolation is stable and verified. Firebase persistence, leaderboard, and production deployment are still pending.
+Current risk: Firestore security rules are still pending, and production environment separation still needs verification.
 
 ## Phase 1: Current Single-Player Stabilization
 

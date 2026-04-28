@@ -77,11 +77,11 @@
 ## Firebase Persistence
 
 - [x] Document Firebase env config
-- [ ] Add Firebase initialization layer
-- [ ] Add Firestore repositories
-- [ ] Save leaderboard scores
-- [ ] Save match results
-- [ ] Add leaderboard scene
+- [x] Add Firebase initialization layer
+- [x] Add Firestore repositories
+- [x] Save leaderboard scores
+- [x] Save match results
+- [x] Add leaderboard scene
 - [ ] Draft Firestore security rules
 
 ## Production
@@ -119,17 +119,21 @@ The goal remains interview-ready production quality over feature quantity. Authe
 - LobbyScene reflects readiness state and disables Start Match until all connected players are back in lobby
 - MatchResultsScene shows winner/no winner, ranked players, survival time, score, local player marker, Back to Lobby, and Home
 - MatchResultsScene emits `lobby:return` before rejoining LobbyScene; Home emits `lobby:leave`
+- Match results now persist to Firestore after match completion
+- Leaderboard score entries now persist to Firestore for each player
+- HomeScene includes navigation to LeaderboardScene
+- LeaderboardScene reads top leaderboard scores from Firestore via repository
 - Same-tick eliminations use one deterministic ranking policy: survival time first, then lobby/player insertion order
 - Match state is currently stored inside internal lobby state and may later be separated from public lobby payloads
 
 ## Current Next Step
 
-Implement Firebase persistence for match results and leaderboard scores.
+Draft Firestore security rules.
 
 ## Current Risk
 
-The full multiplayer MVP loop with smooth client-side interpolation is stable and verified.
-Firebase persistence, leaderboard, and production deployment are still pending.
+- Firestore security rules are still pending.
+- Production environment separation still needs verification.
 
 ## Manual QA Checklist
 

@@ -62,17 +62,20 @@ Phases A through I.4, plus Phase G and Phase H, are complete:
 - Render clock advances each frame, capped at latest server time to handle tab resume without entity freeze.
 - Lives, score, elimination, damage flash, and match finish always use latestSnapshot for instant authority changes.
 - No client-side prediction; new entities fall back to latestSnapshot position to avoid origin flashes.
-- Firebase, leaderboard, and persistence do not exist yet.
+- MatchResultsScene persists match results to Firestore after match finish.
+- Leaderboard score entries are persisted to Firestore for each player.
+- HomeScene includes a Leaderboard entry point.
+- LeaderboardScene exists, is repository-driven, and reads top scores in read-only mode.
 - Match state is currently stored inside internal lobby state and may later be separated from public lobby payloads.
 
 ## Current Next Step
 
-Implement Firebase persistence for match results and leaderboard scores.
+Draft Firestore security rules.
 
 ## Current Risk
 
-The full multiplayer MVP loop with smooth client-side interpolation is stable and verified.
-Firebase persistence, leaderboard, and production deployment are still pending.
+- Firestore security rules are still pending.
+- Production environment separation still needs verification.
 
 ---
 
