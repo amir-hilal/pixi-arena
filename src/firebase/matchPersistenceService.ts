@@ -31,7 +31,7 @@ export async function persistMatchResult(result: MatchResult): Promise<void> {
       : (result.players.find((p) => p.id === result.winnerId)?.name ?? null);
 
   const saves: Promise<unknown>[] = [
-    addMatchResult(winnerName, players, result.durationSeconds).catch((err) => {
+    addMatchResult(result.matchId, winnerName, players, result.durationSeconds).catch((err) => {
       console.error('[Firebase] Failed to save match result:', err);
     }),
     ...result.players.map((p) =>

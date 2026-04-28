@@ -24,6 +24,7 @@ const MATCH_RESULTS_COLLECTION = 'matchResults';
  * Returns the document ID of the created match result.
  */
 export async function addMatchResult(
+  matchId: string,
   winnerDisplayName: string | null,
   players: MatchResultPlayer[],
   durationSeconds: number,
@@ -32,6 +33,7 @@ export async function addMatchResult(
   const environment = getFirebaseEnvironment();
 
   const matchResult: Omit<MatchResult, 'id'> = {
+    matchId,
     winnerDisplayName,
     players,
     playerDisplayNames: players.map(p => p.displayName),
@@ -72,6 +74,7 @@ export async function getRecentMatchResults(
     const data = doc.data();
     results.push({
       id: doc.id,
+      matchId: data.matchId as string,
       winnerDisplayName: data.winnerDisplayName as string | null,
       players: (data.players as MatchResultPlayer[]) ?? [],
       playerDisplayNames: (data.playerDisplayNames as string[]) ?? [],
@@ -108,6 +111,7 @@ export async function getPlayerMatchResults(
     const data = doc.data();
     results.push({
       id: doc.id,
+      matchId: data.matchId as string,
       winnerDisplayName: data.winnerDisplayName as string | null,
       players: (data.players as MatchResultPlayer[]) ?? [],
       playerDisplayNames: (data.playerDisplayNames as string[]) ?? [],
