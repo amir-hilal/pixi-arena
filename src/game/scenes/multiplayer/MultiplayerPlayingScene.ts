@@ -54,6 +54,8 @@ const DEFAULT_PLAYER_ALPHA = 1;
 const DAMAGE_SHAKE_INTENSITY = 8;
 const DAMAGE_SHAKE_FREQUENCY = 70;
 const NEUTRAL_DIRECTION = 0;
+const INTERPOLATION_DELAY_SECONDS = 0.1;
+const MAX_SNAPSHOT_BUFFER = 10;
 
 export class MultiplayerPlayingScene implements Scene {
   private readonly camera = new Camera();
@@ -66,6 +68,9 @@ export class MultiplayerPlayingScene implements Scene {
   private statusText: Text | null = null;
   private eliminatedText: Text | null = null;
   private virtualJoystick: VirtualJoystick | null = null;
+  private readonly snapshotBuffer: MatchSnapshot[] = [];
+  private renderElapsedSeconds = 0;
+  private renderTimeInitialized = false;
   private latestSnapshot: MatchSnapshot;
   private latestLobbyState: LobbyStatePayload | null = null;
   private previousLocalLives: number | null = null;
@@ -125,7 +130,15 @@ export class MultiplayerPlayingScene implements Scene {
   }
 
   public update(deltaSeconds: number): void {
+    if (this.renderTimeInitialized) {
+      this.renderElapsedSeconds = Math.min(
+        this.renderElapsedSeconds + deltaSeconds,
+        this.latestSnapshot.elapsedSeconds,
+      );
+    }
+
     this.updateDamageFeedback(deltaSeconds);
+    this.renderInterpolated();
 
     if (this.matchFinished || this.isLocalPlayerEliminated()) {
       return;
@@ -176,6 +189,8 @@ export class MultiplayerPlayingScene implements Scene {
     this.damageShakeSeconds = 0;
     this.shakeOffsetX = 0;
     this.shakeOffsetY = 0;
+    this.snapshotBuffer.length = 0;
+    this.renderTimeInitialized = false;
   }
 
   private resizeViewportUi(): void {
@@ -218,10 +233,194 @@ export class MultiplayerPlayingScene implements Scene {
 
   private readonly handleMatchSnapshot = (snapshot: MatchSnapshot): void => {
     this.latestSnapshot = snapshot;
+    this.insertSnapshot(snapshot);
+
+    if (!this.renderTimeInitialized) {
+      this.renderElapsedSeconds = snapshot.elapsedSeconds - INTERPOLATION_DELAY_SECONDS;
+      this.renderTimeInitialized = true;
+    }
+
     this.updateLocalDamageState();
     this.updateEliminatedOverlayFromSnapshot();
-    this.renderSnapshot();
   };
+
+  private insertSnapshot(snapshot: MatchSnapshot): void {
+    if (this.snapshotBuffer.some(s => s.tick === snapshot.tick)) {
+      return;
+    }
+
+    const insertIdx = this.snapshotBuffer.findIndex(s => s.tick > snapshot.tick);
+
+    if (insertIdx === -1) {
+      this.snapshotBuffer.push(snapshot);
+    } else {
+      this.snapshotBuffer.splice(insertIdx, 0, snapshot);
+    }
+
+    while (this.snapshotBuffer.length > MAX_SNAPSHOT_BUFFER) {
+      this.snapshotBuffer.shift();
+    }
+  }
+
+  private renderInterpolated(): void {
+    this.syncPlayerRenderables();
+    this.syncEnemyRenderables();
+
+    if (!this.renderTimeInitialized || this.snapshotBuffer.length === 0) {
+      this.updateUi();
+      this.updateCamera();
+      return;
+    }
+
+    const targetTime = this.renderElapsedSeconds;
+    let prevIdx = -1;
+
+    for (let i = 0; i < this.snapshotBuffer.length; i++) {
+      if (this.snapshotBuffer[i].elapsedSeconds <= targetTime) {
+        prevIdx = i;
+      }
+    }
+
+    if (prevIdx === -1) {
+      // Target time is before all buffered snapshots — render earliest available
+      const earliest = this.snapshotBuffer[0];
+      this.placeEntitiesDirect(earliest);
+      this.updateUi();
+      this.updateCameraAt(this.getSnapshotCameraPosition(earliest));
+      return;
+    }
+
+    const prevSnap = this.snapshotBuffer[prevIdx];
+    const nextSnap = this.snapshotBuffer[prevIdx + 1] ?? null;
+
+    if (nextSnap === null) {
+      // No future snapshot yet — hold at prevSnap positions
+      this.placeEntitiesDirect(prevSnap);
+      this.updateUi();
+      this.updateCameraAt(this.getSnapshotCameraPosition(prevSnap));
+      return;
+    }
+
+    const duration = nextSnap.elapsedSeconds - prevSnap.elapsedSeconds;
+    const t = duration > 0
+      ? Math.min(1, Math.max(0, (targetTime - prevSnap.elapsedSeconds) / duration))
+      : 1;
+
+    const cameraPosition = this.placeEntitiesInterpolated(prevSnap, nextSnap, t);
+    this.updateUi();
+    this.updateCameraAt(cameraPosition);
+  }
+
+  private placeEntitiesDirect(snapshot: MatchSnapshot): void {
+    for (const [id, renderable] of this.playerRenderables) {
+      const inSnapshot = snapshot.players.find(p => p.id === id);
+      const latestState = this.latestSnapshot.players.find(p => p.id === id);
+      const state = inSnapshot ?? latestState;
+
+      if (state === undefined) {
+        continue;
+      }
+
+      this.drawPlayerRenderable(renderable, latestState ?? state);
+      renderable.position.set(state.position.x, state.position.y);
+    }
+
+    for (const [id, renderable] of this.enemyRenderables) {
+      const inSnapshot = snapshot.enemies.find(e => e.id === id);
+      const latestState = this.latestSnapshot.enemies.find(e => e.id === id);
+      const state = inSnapshot ?? latestState;
+
+      if (state === undefined) {
+        continue;
+      }
+
+      renderable.position.set(state.position.x, state.position.y);
+    }
+  }
+
+  private placeEntitiesInterpolated(
+    prev: MatchSnapshot,
+    next: MatchSnapshot,
+    t: number,
+  ): { x: number; y: number } | null {
+    const socketId = this.socketClient.getId();
+    let localPlayerPosition: { x: number; y: number } | null = null;
+
+    for (const [id, renderable] of this.playerRenderables) {
+      const prevPlayer = prev.players.find(p => p.id === id);
+      const nextPlayer = next.players.find(p => p.id === id);
+      const latestPlayer = this.latestSnapshot.players.find(p => p.id === id);
+      const source = prevPlayer ?? nextPlayer ?? latestPlayer;
+
+      if (source === undefined) {
+        continue;
+      }
+
+      if (latestPlayer !== undefined) {
+        this.drawPlayerRenderable(renderable, latestPlayer);
+      }
+
+      const x = prevPlayer !== undefined && nextPlayer !== undefined
+        ? prevPlayer.position.x + (nextPlayer.position.x - prevPlayer.position.x) * t
+        : source.position.x;
+      const y = prevPlayer !== undefined && nextPlayer !== undefined
+        ? prevPlayer.position.y + (nextPlayer.position.y - prevPlayer.position.y) * t
+        : source.position.y;
+
+      renderable.position.set(x, y);
+
+      if (id === socketId) {
+        localPlayerPosition = { x, y };
+      }
+    }
+
+    for (const [id, renderable] of this.enemyRenderables) {
+      const prevEnemy = prev.enemies.find(e => e.id === id);
+      const nextEnemy = next.enemies.find(e => e.id === id);
+      const latestEnemy = this.latestSnapshot.enemies.find(e => e.id === id);
+      const source = prevEnemy ?? nextEnemy ?? latestEnemy;
+
+      if (source === undefined) {
+        continue;
+      }
+
+      const x = prevEnemy !== undefined && nextEnemy !== undefined
+        ? prevEnemy.position.x + (nextEnemy.position.x - prevEnemy.position.x) * t
+        : source.position.x;
+      const y = prevEnemy !== undefined && nextEnemy !== undefined
+        ? prevEnemy.position.y + (nextEnemy.position.y - prevEnemy.position.y) * t
+        : source.position.y;
+
+      renderable.position.set(x, y);
+    }
+
+    return localPlayerPosition;
+  }
+
+  private updateCameraAt(position: { x: number; y: number } | null): void {
+    const target = position ?? this.latestSnapshot.players[0]?.position ?? null;
+
+    if (target === null) {
+      return;
+    }
+
+    this.camera.update(target, this.renderer.getViewportSize());
+    this.syncWorldContainerPosition();
+  }
+
+  private getSnapshotCameraPosition(snapshot: MatchSnapshot): { x: number; y: number } | null {
+    const socketId = this.socketClient.getId();
+
+    if (socketId !== null) {
+      const local = snapshot.players.find(p => p.id === socketId);
+
+      if (local !== undefined) {
+        return local.position;
+      }
+    }
+
+    return snapshot.players[0]?.position ?? null;
+  }
 
   private readonly handlePlayerEliminated = (
     elimination: PlayerEliminatedPayload,
