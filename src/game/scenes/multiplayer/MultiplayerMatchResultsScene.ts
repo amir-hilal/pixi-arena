@@ -1,5 +1,6 @@
 import { Text } from 'pixi.js';
 import type { MatchResult, PlayerResult } from '../../../shared/types/index';
+import { persistMatchResult } from '../../../firebase/matchPersistenceService';
 import type { AudioManager } from '../../core/AudioManager';
 import type { Renderer } from '../../core/Renderer';
 import type {
@@ -35,6 +36,7 @@ export class MultiplayerMatchResultsScene implements Scene {
   private statusText: Text | null = null;
   private latestLobbyState: LobbyStatePayload | null;
   private isReturningToLobby = false;
+  private hasSaved = false;
 
   public constructor(
     private readonly renderer: Renderer,
@@ -50,6 +52,11 @@ export class MultiplayerMatchResultsScene implements Scene {
 
   public initialize(): void {
     this.socketClient.on('lobby:state', this.handleLobbyState);
+
+    if (!this.hasSaved) {
+      this.hasSaved = true;
+      void persistMatchResult(this.result);
+    }
 
     this.titleText = this.createCenteredText(TITLE_TEXT, TITLE_TEXT_SIZE, 0);
     this.winnerText = this.createCenteredText(

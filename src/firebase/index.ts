@@ -13,3 +13,4 @@ export { getDb } from './firestore';
 export * from './types';
 export * as leaderboardRepository from './leaderboardRepository';
 export * as matchResultsRepository from './matchResultsRepository';
+export { persistMatchResult } from './matchPersistenceService';

@@ -11,6 +11,7 @@ import {
   orderBy,
   limit,
   getDocs,
+  serverTimestamp,
 } from 'firebase/firestore';
 import { getDb } from './firestore';
 import { getFirebaseEnvironment } from './config';
@@ -35,7 +36,7 @@ export async function addLeaderboardScore(
     survivalTimeSeconds,
     score,
     environment,
-    recordedAt: new Date(),
+    recordedAt: serverTimestamp() as unknown as Date,
   };
 
   const docRef = await addDoc(

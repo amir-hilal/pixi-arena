@@ -11,6 +11,7 @@ import {
   orderBy,
   limit,
   getDocs,
+  serverTimestamp,
 } from 'firebase/firestore';
 import { getDb } from './firestore';
 import { getFirebaseEnvironment } from './config';
@@ -33,9 +34,10 @@ export async function addMatchResult(
   const matchResult: Omit<MatchResult, 'id'> = {
     winnerDisplayName,
     players,
+    playerDisplayNames: players.map(p => p.displayName),
     durationSeconds,
     environment,
-    finishedAt: new Date(),
+    finishedAt: serverTimestamp() as unknown as Date,
   };
 
   const docRef = await addDoc(
@@ -72,6 +74,7 @@ export async function getRecentMatchResults(
       id: doc.id,
       winnerDisplayName: data.winnerDisplayName as string | null,
       players: (data.players as MatchResultPlayer[]) ?? [],
+      playerDisplayNames: (data.playerDisplayNames as string[]) ?? [],
       durationSeconds: data.durationSeconds as number,
       environment: data.environment as 'local' | 'development' | 'production',
       finishedAt: data.finishedAt?.toDate?.() ?? new Date(),
@@ -94,7 +97,8 @@ export async function getPlayerMatchResults(
   const q = query(
     collection(db, MATCH_RESULTS_COLLECTION),
     where('environment', '==', environment),
-    where('players', 'array-contains', { displayName }),
+    where('playerDisplayNames', 'array-contains', displayName),
+    orderBy('finishedAt', 'desc'),
   );
 
   const querySnapshot = await getDocs(q);
@@ -106,6 +110,7 @@ export async function getPlayerMatchResults(
       id: doc.id,
       winnerDisplayName: data.winnerDisplayName as string | null,
       players: (data.players as MatchResultPlayer[]) ?? [],
+      playerDisplayNames: (data.playerDisplayNames as string[]) ?? [],
       durationSeconds: data.durationSeconds as number,
       environment: data.environment as 'local' | 'development' | 'production',
       finishedAt: data.finishedAt?.toDate?.() ?? new Date(),

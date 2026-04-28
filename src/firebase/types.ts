@@ -25,6 +25,8 @@ export interface MatchResult {
   winnerDisplayName: string | null;
   /** Array of player results, ordered by final rank */
   players: MatchResultPlayer[];
+  /** Flat array of display names for array-contains queries */
+  playerDisplayNames: string[];
   /** Match duration in seconds */
   durationSeconds: number;
   /** Environment: 'local' | 'development' | 'production' */
