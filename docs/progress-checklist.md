@@ -82,7 +82,7 @@
 - [x] Save leaderboard scores
 - [x] Save match results
 - [x] Add leaderboard scene
-- [ ] Draft Firestore security rules
+- [x] Draft Firestore security rules
 
 ## Production
 
@@ -128,11 +128,10 @@ The goal remains interview-ready production quality over feature quantity. Authe
 
 ## Current Next Step
 
-Draft Firestore security rules.
+Verify production environment separation using a single Firestore database plus environment field filters.
 
 ## Current Risk
 
-- Firestore security rules are still pending.
 - Production environment separation still needs verification.
 
 ## Manual QA Checklist

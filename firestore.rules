@@ -1,0 +1,83 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    function isValidEnvironment(env) {
+      return env is string
+        && (env == 'local' || env == 'development' || env == 'production');
+    }
+
+    function isNumber(value) {
+      return value is int || value is float;
+    }
+
+    function isValidLeaderboardCreate() {
+      return request.resource.data.keys().hasOnly([
+          'displayName',
+          'survivalTimeSeconds',
+          'score',
+          'environment',
+          'recordedAt',
+        ])
+        && request.resource.data.displayName is string
+        && request.resource.data.displayName.size() >= 1
+        && request.resource.data.displayName.size() <= 40
+        && isNumber(request.resource.data.score)
+        && request.resource.data.score >= 0
+        && request.resource.data.score <= 100000000
+        && isNumber(request.resource.data.survivalTimeSeconds)
+        && request.resource.data.survivalTimeSeconds >= 0
+        && request.resource.data.survivalTimeSeconds <= 86400
+        && isValidEnvironment(request.resource.data.environment)
+        && request.resource.data.recordedAt is timestamp
+        && request.resource.data.recordedAt == request.time;
+    }
+
+    function isValidMatchResultCreate() {
+      return request.resource.data.keys().hasOnly([
+          'matchId',
+          'winnerDisplayName',
+          'players',
+          'playerDisplayNames',
+          'durationSeconds',
+          'environment',
+          'finishedAt',
+        ])
+        && request.resource.data.matchId is string
+        && request.resource.data.matchId.size() >= 1
+        && request.resource.data.matchId.size() <= 80
+        && (
+          request.resource.data.winnerDisplayName == null
+          || (
+            request.resource.data.winnerDisplayName is string
+            && request.resource.data.winnerDisplayName.size() >= 1
+            && request.resource.data.winnerDisplayName.size() <= 40
+          )
+        )
+        && request.resource.data.players is list
+        && request.resource.data.players.size() >= 1
+        && request.resource.data.players.size() <= 4
+        && request.resource.data.playerDisplayNames is list
+        && request.resource.data.playerDisplayNames.size() >= 1
+        && request.resource.data.playerDisplayNames.size() <= 4
+        && request.resource.data.playerDisplayNames.size() == request.resource.data.players.size()
+        && isNumber(request.resource.data.durationSeconds)
+        && request.resource.data.durationSeconds >= 0
+        && request.resource.data.durationSeconds <= 86400
+        && isValidEnvironment(request.resource.data.environment)
+        && request.resource.data.finishedAt is timestamp
+        && request.resource.data.finishedAt == request.time;
+    }
+
+    match /leaderboard/{docId} {
+      allow read: if true;
+      allow create: if isValidLeaderboardCreate();
+      allow update, delete: if false;
+    }
+
+    match /matchResults/{docId} {
+      allow read: if true;
+      allow create: if isValidMatchResultCreate();
+      allow update, delete: if false;
+    }
+  }
+}

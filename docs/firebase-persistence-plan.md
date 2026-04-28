@@ -6,7 +6,6 @@ Firebase is for persistence, not realtime gameplay.
 
 Store durable product data in Firestore:
 
-- player display names
 - leaderboard entries
 - match results
 
@@ -22,27 +21,26 @@ The local display name is stored in `localStorage`. The client sends that displa
 
 ## Firestore Data Model
 
-### `leaderboard_scores/{scoreId}`
+### `leaderboard/{scoreId}`
 
 ```text
-playerName: string
+displayName: string
 score: number
 survivalTimeSeconds: number
-matchId: string
 environment: "local" | "development" | "production"
-createdAt: server timestamp
-gameVersion: string
+recordedAt: server timestamp
 ```
 
-### `match_results/{matchId}`
+### `matchResults/{matchResultId}`
 
 ```text
-lobbyId: string
-winnerPlayerId: string
+matchId: string
+winnerDisplayName: string | null
 players: array
-startedAt: timestamp
-endedAt: timestamp
+playerDisplayNames: string[]
+durationSeconds: number
 environment: "local" | "development" | "production"
+finishedAt: server timestamp
 ```
 
 ## Environment Separation
@@ -59,17 +57,15 @@ Backend environments:
 - `development`
 - `production`
 
-Preferred:
+MVP free-tier strategy (current):
 
-- Use separate Firebase projects for production and dev/local.
-- Keep production data physically isolated.
+- Use one Firestore database.
+- Store `environment` on every persisted document.
+- Filter repository reads by environment.
 
-Acceptable temporary approach:
+Future production hardening:
 
-- Use environment-prefixed collections, or
-- Keep an `environment` field on all persisted documents and filter reads by environment.
-
-Firestore data must not mix across local, development, and production.
+- Move to separate Firebase projects or databases if stricter physical isolation is required.
 
 ## Required Vite Environment Variables
 
@@ -81,16 +77,37 @@ VITE_FIREBASE_PROJECT_ID=
 VITE_FIREBASE_STORAGE_BUCKET=
 VITE_FIREBASE_MESSAGING_SENDER_ID=
 VITE_FIREBASE_APP_ID=
-VITE_FIRESTORE_LEADERBOARD_COLLECTION=
-VITE_FIRESTORE_MATCH_RESULTS_COLLECTION=
+VITE_FIREBASE_ENVIRONMENT=local
 ```
 
 ## Security Rules Notes
 
 - Allow leaderboard reads.
-- Allow score and match result creates with validation.
+- Allow score and match result creates with strict validation.
 - Deny client updates and deletes.
-- Validate `playerName` length.
+- Validate `displayName` length.
 - Validate score and survival time bounds.
-- Validate required environment fields.
+- Validate required environment fields and timestamp fields.
 - Prefer server-side writes for final multiplayer match results once the realtime server exists.
+
+Hardened v1 rules are drafted in [firestore.rules](../firestore.rules).
+
+Validation coverage includes:
+
+- allow only expected fields for `leaderboard` and `matchResults`
+- type and length checks for display names and matchId
+- numeric bounds for score, survivalTimeSeconds, and durationSeconds
+- environment allowlist (`local`, `development`, `production`)
+- timestamp enforcement using `request.time` for `recordedAt` and `finishedAt`
+
+## Required Composite Indexes
+
+Based on current repository queries:
+
+- `leaderboard`: `environment` ASC, `survivalTimeSeconds` DESC, `score` DESC
+- `matchResults`: `environment` ASC, `finishedAt` DESC
+- `matchResults`: `playerDisplayNames` ARRAY, `finishedAt` DESC
+
+Additional index required by current player leaderboard query:
+
+- `leaderboard`: `environment` ASC, `displayName` ASC, `survivalTimeSeconds` DESC

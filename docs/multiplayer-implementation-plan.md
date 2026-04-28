@@ -70,11 +70,10 @@ Phases A through I.4, plus Phase G and Phase H, are complete:
 
 ## Current Next Step
 
-Draft Firestore security rules.
+Verify production environment separation using a single Firestore database plus environment field filters.
 
 ## Current Risk
 
-- Firestore security rules are still pending.
 - Production environment separation still needs verification.
 
 ---
