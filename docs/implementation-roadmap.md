@@ -4,7 +4,7 @@
 
 This roadmap is a high-level product roadmap. For multiplayer implementation details, `docs/multiplayer-implementation-plan.md` is authoritative.
 
-Single-player stabilization, world/camera work, shared simulation extraction, entity state/view wrappers, SocketClient, the Home/Multiplayer menu split, the local Socket.IO server, LobbyScene, Phase I.4 authoritative match lifecycle, MatchResultsScene, and Phase G MultiplayerPlayingScene world-rendering stabilization are complete. Resolution-dependent enemy spawn fairness has been resolved in world-space simulation by removing viewport-based spawn logic.
+Single-player stabilization, world/camera work, shared simulation extraction, entity state/view wrappers, SocketClient, the Home/Multiplayer menu split, the local Socket.IO server, LobbyScene, Phase I.4 authoritative match lifecycle, MatchResultsScene, and Phase G MultiplayerPlayingScene world-rendering stabilization are complete. Resolution-dependent enemy spawn fairness has been resolved in world-space simulation by removing viewport-based spawn logic. Lobby readiness and post-match state handling are implemented with authoritative per-player location (`lobby` | `playing` | `results`) and `lobby:return`-based re-entry.
 
 Current next step: implement interpolation for smoother movement between server snapshots.
 

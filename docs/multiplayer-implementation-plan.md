@@ -32,6 +32,8 @@ Phases A through I.4, plus Phase G and Phase H, are complete:
 - `LobbyScene` renders from server `lobby:state`, supports host start, leave, countdown, errors, and transitions to `MultiplayerPlayingScene`.
 - `MultiplayerPlayingScene` sends input, renders players/enemies from `match:snapshot`, uses world background/boundaries/obstacles/camera like single-player, stops input after elimination/finish, and transitions to `MatchResultsScene` on `match:finished`.
 - `MatchResultsScene` shows winner/no winner, ranked players, survival time, score, local player marker, Back to Lobby, and Home.
+- Lobby readiness is authoritative: each player has a location state (`lobby` | `playing` | `results`) and match start requires all connected players to be back in lobby.
+- MatchResults back flow emits `lobby:return`; server updates readiness and broadcasts `lobby:state` before LobbyScene transition.
 - Same-tick eliminations use one deterministic ranking policy: survival time first, then lobby/player insertion order.
 - Enemy spawn fairness is fixed at simulation level: server/shared spawn logic is world-space only (radius + angle), with no viewport-based behavior.
 - Interpolation, Firebase, leaderboard, and persistence do not exist yet.
@@ -42,15 +44,17 @@ Phases A through I.4, plus Phase G and Phase H, are complete:
 - Client is fully server-state-driven via `lobby:state`.
 - Full multiplayer MVP loop exists: MultiplayerMenu → Lobby → MultiplayerPlaying → MatchResults.
 - Server owns match state, movement, enemies, damage, eliminations, winner detection, survival scoring, and `match:finished`.
+- Server tracks per-player location state (`lobby` | `playing` | `results`) for readiness and participation.
+- `lobby:startMatch` requires host + waiting + minimum players + all connected players in `lobby`.
 - Server simulation is resolution-agnostic and does not use viewport/camera dimensions.
 - Enemy spawning uses world-space ring distribution around players, with retries and gate fallback.
 - Client camera is presentation-only and does not influence gameplay outcomes.
 - MultiplayerPlayingScene renders players/enemies from `match:snapshot` and transitions to MatchResultsScene on `match:finished`.
 - MultiplayerPlayingScene now matches single-player world rendering patterns (background, boundaries, obstacles, camera).
+- LobbyScene displays each player readiness/location and disables Start Match when not all connected players are ready.
 - MatchResultsScene shows winner/no winner, ranked players, survival time, score, local player marker, Back to Lobby, and Home.
-- Back to Lobby uses server `lobby:state`; Home emits `lobby:leave`.
+- MatchResultsScene emits `lobby:return` before rejoining LobbyScene; Home emits `lobby:leave`.
 - Same-tick eliminations use one deterministic ranking policy: survival time first, then lobby/player insertion order.
-- Solo lobby start remains dev-only behavior for local testing.
 - No interpolation, Firebase, leaderboard, or persistence exists yet.
 - Match state is currently stored inside internal lobby state and may later be separated from public lobby payloads.
 
@@ -90,7 +94,7 @@ MultiplayerPlayingScene
   └─ (server: match:finished) → MatchResultsScene
 
 MatchResultsScene
-  ├─ [Back to Lobby] ──→ LobbyScene   (server resets lobby to waiting)
+  ├─ [Back to Lobby] ──→ LobbyScene   (client emits lobby:return; transition waits for server lobby:state)
   └─ [Home] ───────────→ HomeScene    (client sends lobby:leave first)
 ```
 
@@ -464,13 +468,19 @@ Source: inline logic in `PlayingScene.resolvePlayerEnemyCollisions` + `damagePla
 | `lobby:create` | Generate 4-char code; creator becomes host | `lobby:state` to creator |
 | `lobby:join` | Validate: exists + not full + status=waiting; add player | `lobby:state` to all in lobby |
 | `lobby:leave` or disconnect | Remove player; if host → promote next by join order; if empty → destroy | `lobby:state` to remaining |
-| `lobby:startMatch` | Validate sender is host + status=waiting; set countdown; 3s timer; set playing | `match:countdown` × 3 → `match:started` |
+| `lobby:startMatch` | Validate sender is host + status=waiting + minimum players + all connected players in `lobby`; set countdown; 3s timer; set playing | `match:countdown` × 3 → `match:started` |
+| `lobby:return` | Mark sender location as `lobby` for next-match readiness | `lobby:state` to all in lobby |
 | Player disconnect mid-match | Eliminate immediately | `player:eliminated` + `match:snapshot` |
 | Last surviving player | Set status=finished; emit result; reset to waiting | `match:finished` → `lobby:state` |
 
 **Host assignment:** first joiner = host. On host leave, promote next player in join order.
 
-**Minimum to start:** 1 (for dev testing). Recommend enforcing ≥ 2 for release via server validation.
+**Minimum to start:** 2 connected players.
+
+**Player location lifecycle:**
+- `lobby` → `playing` on match start.
+- `playing` → `results` on match finish.
+- `results` → `lobby` on `lobby:return`.
 
 ### 3.2 Match Lifecycle
 
@@ -501,7 +511,8 @@ finished
 | `lobby:create` | `{ playerName: string }` | Server generates lobby code |
 | `lobby:join` | `{ lobbyCode: string; playerName: string }` | Server validates code + capacity |
 | `lobby:leave` | *(none)* | Implicit on disconnect too |
-| `lobby:startMatch` | *(none)* | Server validates sender is host |
+| `lobby:return` | *(none)* | Marks player ready/in-lobby after results |
+| `lobby:startMatch` | *(none)* | Server validates host + lobby readiness before countdown |
 | `player:input` | `{ dx: number; dy: number }` | Normalized direction; sent every frame during match |
 
 ### 4.2 Server → Client
@@ -524,12 +535,14 @@ These supplement the shared simulation types from Part 2.
 
 ```typescript
 type LobbyStatus = 'waiting' | 'countdown' | 'playing' | 'finished';
+type LobbyPlayerLocation = 'lobby' | 'playing' | 'results';
 
 interface LobbyPlayer {
   id: string;
   name: string;
   isHost: boolean;
   isConnected: boolean;
+  location: LobbyPlayerLocation;
 }
 
 interface LobbyState {
@@ -603,7 +616,7 @@ interface LobbyState {
 
 1. ✅ Renders full `LobbyState` from latest server `lobby:state`.
 2. ✅ Shows lobby code, player list, host indicator, and player count.
-3. ✅ Host sees Start Match; all players see Leave.
+3. ✅ Host sees Start Match only when lobby readiness requirements are satisfied; all players see Leave.
 4. ✅ On `match:countdown`, displays `{ secondsRemaining }`.
 5. ✅ On `match:started`, navigates to `MultiplayerPlayingScene`.
 6. ✅ Inline `lobby:error` display.
@@ -625,11 +638,12 @@ interface LobbyState {
 12. ✅ Emit `player:eliminated`.
 13. ✅ Detect winner via `computeWinner`; emit `match:finished` once.
 14. ✅ Produce `MatchResult` payload for `match:finished`.
-15. Pending: separate internal match state from public lobby payloads if the lobby contract needs a stricter boundary.
+15. ✅ Track player location transitions (`lobby` | `playing` | `results`) and validate readiness before `lobby:startMatch`.
+16. Pending: separate internal match state from public lobby payloads if the lobby contract needs a stricter boundary.
 
 Same-tick eliminations use the same deterministic ranking policy for `player:eliminated` and final `MatchResult.players`: survival time first, then lobby/player insertion order.
 
-Solo lobby start remains dev-only behavior for local testing. Production should enforce at least two players before `lobby:startMatch`.
+`lobby:startMatch` now enforces at least two connected players and all connected players in `lobby`.
 
 ### Phase G — MultiplayerPlayingScene Client Rendering ✅ COMPLETE
 
@@ -646,7 +660,7 @@ Solo lobby start remains dev-only behavior for local testing. Production should 
 
 1. ✅ Display ranked player results from `MatchResult.players` (sorted by `rank`).
 2. ✅ Show winner/no winner and local player marker.
-3. ✅ "Back to Lobby" button → navigate to `LobbyScene` using server `lobby:state`.
+3. ✅ "Back to Lobby" button emits `lobby:return`; transition waits for updated server `lobby:state`.
 4. ✅ "Home" button → emit `lobby:leave`; navigate to `HomeScene`.
 
 ### Current Manual QA Checklist
@@ -689,7 +703,7 @@ No client-side prediction means the local player's rendered position lags by one
 4 players + 20 enemies × ~3 numeric fields ≈ 1–2 KB JSON per tick. At 30 ticks/sec = ~60 KB/sec per client. Acceptable for v1 without binary encoding.
 
 **Back-to-lobby consistency**
-After `match:finished`, server resets lobby to `waiting` and emits `lobby:state`. Clients on `MatchResultsScene` clicking "Back to Lobby" navigate to `LobbyScene` and sync to current `lobby:state`. Clients clicking "Home" must emit `lobby:leave` before navigating.
+After `match:finished`, server marks player locations `results`, resets lobby to `waiting`, and emits `lobby:state`. Clients on `MatchResultsScene` click "Back to Lobby" to emit `lobby:return`, then transition only after server confirms readiness via `lobby:state`. Clients clicking "Home" emit `lobby:leave` before navigating.
 
 ### Minor
 
@@ -699,8 +713,8 @@ After `match:finished`, server resets lobby to `waiting` and emits `lobby:state`
 **`ObstacleState` array rebuilt each frame**
 `obstacleSystem.getObstacles().map(o => o.rect)` creates a new array every frame in `PlayingScene`. Obstacles are static. A `getObstacleRects()` accessor returning a cached stable array is a small cleanup deferred to Phase B.
 
-**Host can start with 1 player**
-Useful for dev testing. Should be enforced to ≥ 2 for production by server validation. The client can show the Start button disabled with a "Waiting for more players" label when count < 2.
+**Lobby readiness UX clarity**
+When one or more connected players are still in `results`, Start Match remains disabled and the lobby should clearly communicate who is not ready.
 
 ---
 

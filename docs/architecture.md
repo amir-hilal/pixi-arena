@@ -18,6 +18,8 @@ The current frontend separates engine setup, gameplay data, gameplay logic, scen
 - Pixi rendering code must not leak into shared simulation logic.
 - All gameplay logic is defined in world space and must never depend on client viewport, resolution, or camera.
 - Client camera is a presentation concern only and does not influence simulation.
+- Match participation requires explicit server-side readiness. Connection alone is not sufficient.
+- Player lifecycle includes location states (`lobby`, `playing`, `results`) to prevent UI/server desync.
 
 ## Game Modules
 

@@ -52,14 +52,18 @@
 - [x] Phase D complete — `src/api/SocketClient.ts`; typed Socket.IO transport wrapper only; no lobby/match/game lifecycle logic
 - [x] Phase E complete — HomeScene split into Single Player/Multiplayer; `MultiplayerMenuScene` added with display name, create/join/back, socket subscriptions, and LobbyScene transition
 - [x] Phase F.0 — Add temporary local mock Socket.IO server for lobby UI development
-- [x] Phase F — Implement LobbyScene with lobby state rendering, host controls, leave flow, countdown, and match:started subscription
+- [x] Phase F — Implement LobbyScene with lobby state rendering, host controls, readiness-aware start validation UI, leave flow, countdown, and match:started subscription
 - [x] Phase I movement slice — server-owned match state, player input, authoritative movement tick loop, `match:snapshot`, and snapshot-driven player rendering
 - [x] Phase I.2 — Add server-owned enemies and enemy snapshots
 - [x] Phase I.3 — Add server-owned damage/collisions and eliminations
-- [x] Phase I.4 — Add winner/game over logic, `match:finished`, survival scoring, and deterministic result ranking
-- [x] Phase H — Add MatchResultsScene/results UI
+- [x] Phase I.4 — Add winner/game over logic, `match:finished`, survival scoring, deterministic result ranking, and post-match location state transitions (`playing` → `results`)
+- [x] Phase H — Add MatchResultsScene/results UI with server-confirmed `lobby:return` flow back to LobbyScene
 - [x] Phase G — Expand client gameplay rendering from authoritative server snapshots
 	- Resolved resolution-dependent spawn fairness by removing viewport-based logic
+- [x] Fix lobby readiness and post-match player state handling
+	- Server tracks player location (`lobby` | `playing` | `results`)
+	- Host start requires all connected players to be back in lobby
+	- MatchResults Back to Lobby emits `lobby:return` before transition
 
 ## Firebase Persistence
 
@@ -91,15 +95,17 @@ The goal remains interview-ready production quality over feature quantity. Authe
 - Client is fully server-state-driven via `lobby:state`
 - Full multiplayer MVP loop exists: MultiplayerMenu → Lobby → MultiplayerPlaying → MatchResults
 - Server owns match state, movement, enemies, damage, eliminations, winner detection, survival scoring, and `match:finished`
+- Server tracks per-player location state (`lobby` | `playing` | `results`) and readiness for next match
+- Match start requires all connected players to be in `lobby`
 - Server simulation is resolution-agnostic and does not use viewport/camera dimensions
 - Enemy spawning uses world-space ring distribution around players (`radius + angle`) with gate fallback
 - Client camera is presentation-only and does not influence gameplay outcomes
 - MultiplayerPlayingScene renders players/enemies from `match:snapshot` and transitions to MatchResultsScene on `match:finished`
 - MultiplayerPlayingScene now matches single-player world rendering patterns (background, boundaries, obstacles, camera)
+- LobbyScene reflects readiness state and disables Start Match until all connected players are back in lobby
 - MatchResultsScene shows winner/no winner, ranked players, survival time, score, local player marker, Back to Lobby, and Home
-- Back to Lobby uses server `lobby:state`; Home emits `lobby:leave`
+- MatchResultsScene emits `lobby:return` before rejoining LobbyScene; Home emits `lobby:leave`
 - Same-tick eliminations use one deterministic ranking policy: survival time first, then lobby/player insertion order
-- Solo lobby start remains dev-only behavior for local testing
 - No interpolation, Firebase, leaderboard, or persistence exists yet
 - Match state is currently stored inside internal lobby state and may later be separated from public lobby payloads
 
