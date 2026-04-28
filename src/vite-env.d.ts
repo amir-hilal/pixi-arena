@@ -4,7 +4,6 @@ interface ImportMetaEnv {
 	readonly VITE_APP_ENV?: 'local' | 'development' | 'production';
 	readonly VITE_SOCKET_SERVER_URL?: string;
 	readonly VITE_SOCKET_URL?: string;
-	readonly VITE_API_BASE_URL?: string;
 	readonly VITE_ENABLE_DEBUG?: string;
 	readonly VITE_FIREBASE_API_KEY?: string;
 	readonly VITE_FIREBASE_AUTH_DOMAIN?: string;

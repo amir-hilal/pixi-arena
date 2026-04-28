@@ -78,7 +78,6 @@ Firebase data isolation is handled in MVP using a single Firestore database plus
 ```text
 VITE_APP_ENV=local
 VITE_SOCKET_SERVER_URL=http://localhost:3001
-VITE_API_BASE_URL=http://localhost:3000
 VITE_ENABLE_DEBUG=true
 
 VITE_FIREBASE_API_KEY=
