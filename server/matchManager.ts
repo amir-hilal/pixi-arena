@@ -51,12 +51,6 @@ const TICK_RATE = 30;
 const TICK_INTERVAL_MS = 1000 / TICK_RATE;
 const TICK_DELTA_SECONDS = 1 / TICK_RATE;
 const SPAWN_SPACING = 96;
-const SERVER_VIEWPORT = {
-  worldLeft: 0,
-  worldTop: 0,
-  worldRight: WORLD_WIDTH,
-  worldBottom: WORLD_HEIGHT,
-};
 
 const worldState: WorldState = {
   width: WORLD_WIDTH,
@@ -443,8 +437,7 @@ function createEnemyState(lobbyCode: string, targetPosition: Vector2): EnemyStat
       targetPosition,
       { width: WORLD_WIDTH, height: WORLD_HEIGHT },
       WORLD_GATES,
-      [],
-      SERVER_VIEWPORT,
+      worldState.obstacles.map((obstacle) => obstacle.rect),
     ),
   };
 }

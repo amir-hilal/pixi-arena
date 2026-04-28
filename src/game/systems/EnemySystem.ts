@@ -9,7 +9,6 @@ import {
   getEnemySpawnPosition,
   isEnemyWithinValidBounds,
   stepEnemyTowardPosition,
-  type ViewportRect,
 } from '../../shared/simulation/enemyBehavior';
 
 interface Bounds {
@@ -24,7 +23,6 @@ interface EnemyUpdate {
   obstacles: readonly ObstacleRect[];
   playerPosition: Position;
   survivalTimeSeconds: number;
-  viewport: ViewportRect;
 }
 
 interface EnemyUpdateResult {
@@ -48,7 +46,6 @@ export class EnemySystem {
       update.playerPosition,
       update.gates,
       update.obstacles,
-      update.viewport,
       update.survivalTimeSeconds,
     );
 
@@ -95,7 +92,6 @@ export class EnemySystem {
     playerPosition: Position,
     gates: readonly Gate[],
     obstacles: readonly ObstacleRect[],
-    viewport: ViewportRect,
     survivalTimeSeconds: number,
   ): Enemy[] {
     this.elapsedSpawnSeconds += deltaSeconds;
@@ -111,7 +107,7 @@ export class EnemySystem {
     this.elapsedSpawnSeconds = 0;
 
     const enemy = new Enemy(this.createEnemyState(
-      getEnemySpawnPosition(playerPosition, bounds, gates, obstacles, viewport),
+      getEnemySpawnPosition(playerPosition, bounds, gates, obstacles),
     ));
     this.enemies.push(enemy);
 

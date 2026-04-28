@@ -1,5 +1,4 @@
 import {
-  GATE_FALLBACK_MIN_DIST,
   MAX_SPAWN_RETRIES,
   MINIMUM_SPAWN_INTERVAL_SECONDS,
   SPAWN_INTERVAL_SCALE_FACTOR,
@@ -13,13 +12,6 @@ import type { GateState, Rect, Vector2 } from '../types/index';
 interface Bounds {
   width: number;
   height: number;
-}
-
-export interface ViewportRect {
-  worldLeft: number;
-  worldTop: number;
-  worldRight: number;
-  worldBottom: number;
 }
 
 const TWO_PI = Math.PI * 2;
@@ -39,43 +31,36 @@ export function getEnemySpawnPosition(
   bounds: Bounds,
   gates: readonly GateState[],
   obstacles: readonly Rect[],
-  viewport: ViewportRect,
   random: () => number = Math.random,
 ): Vector2 {
-  // Try several random near-player angles; skip positions that are too close
-  // after world-edge clamping or land inside an obstacle.
+  // Try several random world-space ring positions around the player.
   for (let attempt = 0; attempt < MAX_SPAWN_RETRIES; attempt++) {
     const angle = random() * TWO_PI;
-    const radius = SPAWN_RADIUS_MIN + random() * (SPAWN_RADIUS_MAX - SPAWN_RADIUS_MIN);
-    const x = Math.min(
-      Math.max(0, playerPosition.x + Math.cos(angle) * radius),
-      bounds.width,
-    );
-    const y = Math.min(
-      Math.max(0, playerPosition.y + Math.sin(angle) * radius),
-      bounds.height,
-    );
-    const actualDist = Math.hypot(x - playerPosition.x, y - playerPosition.y);
+    const radius =
+      SPAWN_RADIUS_MIN + random() * (SPAWN_RADIUS_MAX - SPAWN_RADIUS_MIN);
+    const x = playerPosition.x + Math.cos(angle) * radius;
+    const y = playerPosition.y + Math.sin(angle) * radius;
 
-    if (
-      actualDist >= GATE_FALLBACK_MIN_DIST &&
-      !isPointInsideObstacleSafeRadius({ x, y }, obstacles)
-    ) {
-      return { x, y };
+    if (!isPointWithinBounds({ x, y }, bounds)) {
+      continue;
     }
+
+    if (isPointInsideObstacleSafeRadius({ x, y }, obstacles)) {
+      continue;
+    }
+
+    return { x, y };
   }
 
-  return selectEnemyGateSpawn(playerPosition, gates, viewport, obstacles);
+  return selectEnemyGateSpawn(playerPosition, gates, obstacles);
 }
 
 export function selectEnemyGateSpawn(
   playerPosition: Vector2,
   gates: readonly GateState[],
-  viewport: ViewportRect,
   obstacles: readonly Rect[],
 ): Vector2 {
-  const offScreen = gates.filter((gate) => !isGateInViewport(gate, viewport));
-  const candidates = offScreen.length > 0 ? offScreen : [...gates];
+  const candidates = [...gates];
 
   let bestX = candidates[0].spawnX;
   let bestY = candidates[0].spawnY;
@@ -138,12 +123,12 @@ export function getEnemyCullMargin(): number {
   return SPAWN_RADIUS_MAX + 100;
 }
 
-function isGateInViewport(gate: GateState, viewport: ViewportRect): boolean {
+function isPointWithinBounds(pos: Vector2, bounds: Bounds): boolean {
   return (
-    gate.spawnX >= viewport.worldLeft &&
-    gate.spawnX <= viewport.worldRight &&
-    gate.spawnY >= viewport.worldTop &&
-    gate.spawnY <= viewport.worldBottom
+    pos.x >= 0 &&
+    pos.x <= bounds.width &&
+    pos.y >= 0 &&
+    pos.y <= bounds.height
   );
 }
 

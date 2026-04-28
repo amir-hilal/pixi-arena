@@ -260,7 +260,6 @@ export class SinglePlayerPlayingScene implements Scene {
   }
 
   private updateEnemies(deltaSeconds: number, player: Player): void {
-    const viewport = this.renderer.getViewportSize();
     const result = this.enemySystem.update({
       bounds: getWorldBounds(),
       deltaSeconds,
@@ -268,12 +267,6 @@ export class SinglePlayerPlayingScene implements Scene {
       obstacles: this.getObstacles().map((o) => o.rect),
       playerPosition: player.position,
       survivalTimeSeconds: player.state.survivalTimeSeconds,
-      viewport: {
-        worldLeft:   -this.camera.x,
-        worldTop:    -this.camera.y,
-        worldRight:  -this.camera.x + viewport.width,
-        worldBottom: -this.camera.y + viewport.height,
-      },
     });
 
     for (const enemy of result.spawnedEnemies) {

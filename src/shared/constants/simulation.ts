@@ -7,8 +7,8 @@ export const SPAWN_INTERVAL_SCALE_FACTOR = 0.02;
 /** Minimum spawn interval — difficulty floor. */
 export const MINIMUM_SPAWN_INTERVAL_SECONDS = 0.45;
 
-export const SPAWN_RADIUS_MIN = 400;
-export const SPAWN_RADIUS_MAX = 650;
+export const SPAWN_RADIUS_MIN = 900;
+export const SPAWN_RADIUS_MAX = 1200;
 
 /**
  * If a near-player spawn attempt ends up closer than this to the player
