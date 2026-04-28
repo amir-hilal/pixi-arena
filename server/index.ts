@@ -130,6 +130,16 @@ io.on('connection', (socket) => {
       return;
     }
 
+    const connectedPlayers = lobby.players.filter((player) => player.isConnected);
+
+    if (connectedPlayers.length < 2) {
+      emitLobbyError(
+        socket.id,
+        new Error('At least 2 players are required to start the match.'),
+      );
+      return;
+    }
+
     if (!areAllConnectedPlayersInLobby(lobby)) {
       emitLobbyError(
         socket.id,

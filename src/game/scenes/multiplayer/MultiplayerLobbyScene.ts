@@ -31,6 +31,7 @@ const ERROR_TEXT_COLOR = 0xfca5a5;
 const COUNTDOWN_TEXT_COLOR = 0xfacc15;
 const DISABLED_TEXT_COLOR = 0x64748b;
 const WAITING_FOR_RETURN_TEXT = 'Waiting for all players to return...';
+const WAITING_FOR_PLAYERS_TEXT = 'Need at least 2 players to start.';
 
 export class MultiplayerLobbyScene implements Scene {
   private titleText: Text | null = null;
@@ -200,6 +201,7 @@ export class MultiplayerLobbyScene implements Scene {
   private renderState(): void {
     const playerCount = this.latestState.players.length;
     const isHost = this.isLocalPlayerHost();
+    const connectedPlayersInLobby = this.getConnectedPlayersInLobbyCount();
     const canStartMatch = this.canStartMatch();
 
     if (this.lobbyCodeText !== null) {
@@ -207,7 +209,7 @@ export class MultiplayerLobbyScene implements Scene {
     }
 
     if (this.playerCountText !== null) {
-      this.playerCountText.text = `${playerCount} / ${this.latestState.maxPlayers}`;
+      this.playerCountText.text = `${playerCount} / ${this.latestState.maxPlayers} (${connectedPlayersInLobby} ready)`;
     }
 
     if (this.playersText !== null) {
@@ -231,6 +233,8 @@ export class MultiplayerLobbyScene implements Scene {
     if (this.statusText !== null) {
       if (this.latestState.status !== 'waiting') {
         this.statusText.text = `Status: ${this.latestState.status}`;
+      } else if (!this.hasMinimumConnectedPlayers()) {
+        this.statusText.text = WAITING_FOR_PLAYERS_TEXT;
       } else if (!canStartMatch) {
         this.statusText.text = WAITING_FOR_RETURN_TEXT;
       } else {
@@ -242,9 +246,23 @@ export class MultiplayerLobbyScene implements Scene {
   }
 
   private canStartMatch(): boolean {
+    if (!this.hasMinimumConnectedPlayers()) {
+      return false;
+    }
+
     return this.latestState.players.every(
       (player) => !player.isConnected || player.location === 'lobby',
     );
+  }
+
+  private hasMinimumConnectedPlayers(): boolean {
+    return this.latestState.players.filter((player) => player.isConnected).length >= 2;
+  }
+
+  private getConnectedPlayersInLobbyCount(): number {
+    return this.latestState.players.filter(
+      (player) => player.isConnected && player.location === 'lobby',
+    ).length;
   }
 
   private getPlayerLocationLabel(location: LobbyStatePayload['players'][number]['location']): string {
@@ -309,7 +327,11 @@ export class MultiplayerLobbyScene implements Scene {
     }
 
     if (!this.canStartMatch()) {
-      this.setError(WAITING_FOR_RETURN_TEXT);
+      this.setError(
+        this.hasMinimumConnectedPlayers()
+          ? WAITING_FOR_RETURN_TEXT
+          : WAITING_FOR_PLAYERS_TEXT,
+      );
       return;
     }
 
