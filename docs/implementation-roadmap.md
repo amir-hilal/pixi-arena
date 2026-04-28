@@ -4,9 +4,11 @@
 
 This roadmap is a high-level product roadmap. For multiplayer implementation details, `docs/multiplayer-implementation-plan.md` is authoritative.
 
-Single-player stabilization, world/camera work, shared simulation extraction, entity state/view wrappers, SocketClient, the Home/Multiplayer menu split, the local Socket.IO server, LobbyScene, Phase I.4 authoritative match lifecycle, and MatchResultsScene are complete. The current next step is to run full two-tab multiplayer QA and fix any discovered bugs.
+Single-player stabilization, world/camera work, shared simulation extraction, entity state/view wrappers, SocketClient, the Home/Multiplayer menu split, the local Socket.IO server, LobbyScene, Phase I.4 authoritative match lifecycle, MatchResultsScene, and Phase G MultiplayerPlayingScene world-rendering stabilization are complete. Resolution-dependent enemy spawn fairness has been resolved in world-space simulation by removing viewport-based spawn logic.
 
-Current risk: the full local multiplayer MVP loop exists, but it still needs a complete two-tab QA pass. Firebase persistence, leaderboard, interpolation, and production deployment are still pending.
+Current next step: implement interpolation for smoother movement between server snapshots.
+
+Current risk: the full local multiplayer MVP loop is stable, but snapshot interpolation is not implemented yet. Movement smoothness under latency and jitter, Firebase persistence, leaderboard, and production deployment are still pending.
 
 ## Phase 1: Current Single-Player Stabilization
 

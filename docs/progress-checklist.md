@@ -58,7 +58,8 @@
 - [x] Phase I.3 — Add server-owned damage/collisions and eliminations
 - [x] Phase I.4 — Add winner/game over logic, `match:finished`, survival scoring, and deterministic result ranking
 - [x] Phase H — Add MatchResultsScene/results UI
-- [ ] Phase G — Expand client gameplay rendering from authoritative server snapshots
+- [x] Phase G — Expand client gameplay rendering from authoritative server snapshots
+	- Resolved resolution-dependent spawn fairness by removing viewport-based logic
 
 ## Firebase Persistence
 
@@ -90,7 +91,11 @@ The goal remains interview-ready production quality over feature quantity. Authe
 - Client is fully server-state-driven via `lobby:state`
 - Full multiplayer MVP loop exists: MultiplayerMenu → Lobby → MultiplayerPlaying → MatchResults
 - Server owns match state, movement, enemies, damage, eliminations, winner detection, survival scoring, and `match:finished`
+- Server simulation is resolution-agnostic and does not use viewport/camera dimensions
+- Enemy spawning uses world-space ring distribution around players (`radius + angle`) with gate fallback
+- Client camera is presentation-only and does not influence gameplay outcomes
 - MultiplayerPlayingScene renders players/enemies from `match:snapshot` and transitions to MatchResultsScene on `match:finished`
+- MultiplayerPlayingScene now matches single-player world rendering patterns (background, boundaries, obstacles, camera)
 - MatchResultsScene shows winner/no winner, ranked players, survival time, score, local player marker, Back to Lobby, and Home
 - Back to Lobby uses server `lobby:state`; Home emits `lobby:leave`
 - Same-tick eliminations use one deterministic ranking policy: survival time first, then lobby/player insertion order
@@ -100,12 +105,13 @@ The goal remains interview-ready production quality over feature quantity. Authe
 
 ## Current Next Step
 
-Run full two-tab multiplayer QA and fix any discovered bugs.
+Implement interpolation for smoother movement between server snapshots.
 
 ## Current Risk
 
-The full local multiplayer MVP loop exists, but it still needs a complete two-tab QA pass.
-Firebase persistence, leaderboard, interpolation, and production deployment are still pending.
+The full local multiplayer MVP loop is stable, but snapshot interpolation is not implemented yet.
+Movement smoothness under latency and jitter is still pending.
+Firebase persistence, leaderboard, and production deployment are still pending.
 
 ## Manual QA Checklist
 

@@ -21,7 +21,7 @@ It supersedes scattered notes in `multiplayer-architecture.md` where the two con
 
 ## Current Status
 
-Phases A through F and Phase I.4 are complete:
+Phases A through I.4, plus Phase G and Phase H, are complete:
 
 - Shared constants, types, and pure simulation functions exist under `src/shared/`.
 - `Player` and `Enemy` are Pixi view wrappers over `PlayerState` and `EnemyState`.
@@ -30,9 +30,10 @@ Phases A through F and Phase I.4 are complete:
 - `MultiplayerMenuScene` stores display name, shows Create Lobby / Join Lobby / Back, connects through `Game.ts`, and transitions to `LobbyScene` on `lobby:state`.
 - `server/` owns lobby state, match state, player input, movement, enemies, damage, eliminations, winner detection, survival scoring, `match:snapshot`, and `match:finished`.
 - `LobbyScene` renders from server `lobby:state`, supports host start, leave, countdown, errors, and transitions to `MultiplayerPlayingScene`.
-- `MultiplayerPlayingScene` sends input, renders players/enemies from `match:snapshot`, stops input after elimination/finish, and transitions to `MatchResultsScene` on `match:finished`.
+- `MultiplayerPlayingScene` sends input, renders players/enemies from `match:snapshot`, uses world background/boundaries/obstacles/camera like single-player, stops input after elimination/finish, and transitions to `MatchResultsScene` on `match:finished`.
 - `MatchResultsScene` shows winner/no winner, ranked players, survival time, score, local player marker, Back to Lobby, and Home.
 - Same-tick eliminations use one deterministic ranking policy: survival time first, then lobby/player insertion order.
+- Enemy spawn fairness is fixed at simulation level: server/shared spawn logic is world-space only (radius + angle), with no viewport-based behavior.
 - Interpolation, Firebase, leaderboard, and persistence do not exist yet.
 
 ## Current Multiplayer State
@@ -41,7 +42,11 @@ Phases A through F and Phase I.4 are complete:
 - Client is fully server-state-driven via `lobby:state`.
 - Full multiplayer MVP loop exists: MultiplayerMenu → Lobby → MultiplayerPlaying → MatchResults.
 - Server owns match state, movement, enemies, damage, eliminations, winner detection, survival scoring, and `match:finished`.
+- Server simulation is resolution-agnostic and does not use viewport/camera dimensions.
+- Enemy spawning uses world-space ring distribution around players, with retries and gate fallback.
+- Client camera is presentation-only and does not influence gameplay outcomes.
 - MultiplayerPlayingScene renders players/enemies from `match:snapshot` and transitions to MatchResultsScene on `match:finished`.
+- MultiplayerPlayingScene now matches single-player world rendering patterns (background, boundaries, obstacles, camera).
 - MatchResultsScene shows winner/no winner, ranked players, survival time, score, local player marker, Back to Lobby, and Home.
 - Back to Lobby uses server `lobby:state`; Home emits `lobby:leave`.
 - Same-tick eliminations use one deterministic ranking policy: survival time first, then lobby/player insertion order.
@@ -51,12 +56,13 @@ Phases A through F and Phase I.4 are complete:
 
 ## Current Next Step
 
-Run full two-tab multiplayer QA and fix any discovered bugs.
+Implement interpolation for smoother movement between server snapshots.
 
 ## Current Risk
 
-The full local multiplayer MVP loop exists, but it still needs a complete two-tab QA pass.
-Firebase persistence, leaderboard, interpolation, and production deployment are still pending.
+The full local multiplayer MVP loop is stable, but snapshot interpolation is not implemented yet.
+Movement smoothness under latency and jitter is still pending.
+Firebase persistence, leaderboard, and production deployment are still pending.
 
 ---
 
@@ -399,9 +405,8 @@ selectSpawnPosition(
   playerPos: Vector2,
   world: WorldState,
   gates: readonly GateState[],
-  viewportRect: ViewportRect,
 ): Vector2
-  → retry loop (MAX_SPAWN_RETRIES) for near-player angle; gate fallback
+  → retry loop (MAX_SPAWN_RETRIES) for near-player ring spawn (radius + angle) in world space
   → obstacle clearance checked via circleRectPushback distance
 ```
 
@@ -626,7 +631,7 @@ Same-tick eliminations use the same deterministic ranking policy for `player:eli
 
 Solo lobby start remains dev-only behavior for local testing. Production should enforce at least two players before `lobby:startMatch`.
 
-### Phase G — MultiplayerPlayingScene Client Rendering
+### Phase G — MultiplayerPlayingScene Client Rendering ✅ COMPLETE
 
 1. On `initialize()`: render world, obstacles, boundary, ground (same as `PlayingScene`).
 2. Local player rendered from last known `PlayerState`.

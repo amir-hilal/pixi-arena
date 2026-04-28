@@ -16,6 +16,8 @@ The current frontend separates engine setup, gameplay data, gameplay logic, scen
 - Scenes coordinate systems, entities, assets, and transitions.
 - API code stays outside gameplay entities and systems.
 - Pixi rendering code must not leak into shared simulation logic.
+- All gameplay logic is defined in world space and must never depend on client viewport, resolution, or camera.
+- Client camera is a presentation concern only and does not influence simulation.
 
 ## Game Modules
 
@@ -48,6 +50,7 @@ Multiplayer gameplay will use a client/server architecture.
 - Firebase stores persistent product data only.
 
 Gameplay rules that need to run on both client and server are being moved into a shared simulation layer with no Pixi dependency. Shared logic currently includes types, constants, movement, collision, enemy behavior, and damage/winner helpers.
+Enemy spawning fairness is enforced in shared/server world-space logic and does not depend on viewport-based spawning rules.
 
 ## Server-Authoritative Multiplayer
 
@@ -95,9 +98,10 @@ In multiplayer, the frontend update loop should also process server snapshots an
 
 ## Current Next Step
 
-Run full two-tab multiplayer QA and fix any discovered bugs.
+Implement interpolation for smoother movement between server snapshots.
 
 ## Current Risk
 
-The full local multiplayer MVP loop exists, but it still needs a complete two-tab QA pass.
-Firebase persistence, leaderboard, interpolation, and production deployment are still pending.
+The full local multiplayer MVP loop is stable, but snapshot interpolation is not implemented yet.
+Movement smoothness under latency and jitter is still pending.
+Firebase persistence, leaderboard, and production deployment are still pending.
