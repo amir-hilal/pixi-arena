@@ -61,6 +61,14 @@
 
 - [x] Phase G — Expand client gameplay rendering from authoritative server snapshots, including world rendering parity and resolution fairness fixes.
 	- Resolved resolution-dependent spawn fairness by removing viewport-based logic
+- [x] Phase J — Implement client-side snapshot interpolation for smooth rendering
+	- Client maintains snapshot buffer ordered by tick, deduped, max 10 snapshots
+	- Render clock advances each frame, capped at latestSnapshot.elapsedSeconds
+	- Player/enemy positions interpolated between bracketing snapshots only
+	- New entities fall back to latestSnapshot position to avoid origin flash
+	- Lives, score, elimination, damage flash, results transition all use latestSnapshot (no prediction)
+	- Camera follows interpolated local player position
+	- No server authority changes; all snapshots remain immutable on client
 - [x] Fix lobby readiness and post-match player state handling
 	- Server tracks player location (`lobby` | `playing` | `results`)
 	- Host start requires all connected players to be back in lobby
@@ -101,23 +109,26 @@ The goal remains interview-ready production quality over feature quantity. Authe
 - Server simulation is resolution-agnostic and does not use viewport/camera dimensions
 - Enemy spawning uses world-space ring distribution around players (`radius + angle`) with gate fallback
 - Client camera is presentation-only and does not influence gameplay outcomes
-- MultiplayerPlayingScene renders players/enemies from `match:snapshot` and transitions to MatchResultsScene on `match:finished`
+- **Client maintains a buffer of recent authoritative snapshots, ordered by tick and deduped**
+- **Player and enemy positions are interpolated only — render positions animate smoothly between buffered server snapshots**
+- **Render clock advances each frame, capped at latest server time to handle tab resume without entity freeze**
+- **Lives, score, elimination, damage flash, and match finish always use latestSnapshot for instant authority changes**
+- **No client-side prediction; new entities fall back to latestSnapshot position to avoid origin flashes**
+- MultiplayerPlayingScene renders players/enemies from interpolated positions and transitions to MatchResultsScene on `match:finished`
 - MultiplayerPlayingScene now matches single-player world rendering patterns (background, boundaries, obstacles, camera)
 - LobbyScene reflects readiness state and disables Start Match until all connected players are back in lobby
 - MatchResultsScene shows winner/no winner, ranked players, survival time, score, local player marker, Back to Lobby, and Home
 - MatchResultsScene emits `lobby:return` before rejoining LobbyScene; Home emits `lobby:leave`
 - Same-tick eliminations use one deterministic ranking policy: survival time first, then lobby/player insertion order
-- No interpolation, Firebase, leaderboard, or persistence exists yet
 - Match state is currently stored inside internal lobby state and may later be separated from public lobby payloads
 
 ## Current Next Step
 
-Implement interpolation for smoother movement between server snapshots.
+Implement Firebase persistence for match results and leaderboard scores.
 
 ## Current Risk
 
-The full local multiplayer MVP loop is stable, but snapshot interpolation is not implemented yet.
-Movement smoothness under latency and jitter is still pending.
+The full multiplayer MVP loop with smooth client-side interpolation is stable and verified.
 Firebase persistence, leaderboard, and production deployment are still pending.
 
 ## Manual QA Checklist

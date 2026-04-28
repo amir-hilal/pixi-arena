@@ -36,7 +36,7 @@ Phases A through I.4, plus Phase G and Phase H, are complete:
 - MatchResults back flow emits `lobby:return`; server updates readiness and broadcasts `lobby:state` before LobbyScene transition.
 - Same-tick eliminations use one deterministic ranking policy: survival time first, then lobby/player insertion order.
 - Enemy spawn fairness is fixed at simulation level: server/shared spawn logic is world-space only (radius + angle), with no viewport-based behavior.
-- Interpolation, Firebase, leaderboard, and persistence do not exist yet.
+- Firebase, leaderboard, and persistence do not exist yet.
 
 ## Current Multiplayer State
 
@@ -57,17 +57,21 @@ Phases A through I.4, plus Phase G and Phase H, are complete:
 - MatchResultsScene shows winner/no winner, ranked players, survival time, score, local player marker, Back to Lobby, and Home.
 - MatchResultsScene emits `lobby:return` before rejoining LobbyScene; Home emits `lobby:leave`.
 - Same-tick eliminations use one deterministic ranking policy: survival time first, then lobby/player insertion order.
-- No interpolation, Firebase, leaderboard, or persistence exists yet.
+- Client maintains a buffer of recent authoritative snapshots, ordered by tick and deduped.
+- Player and enemy positions are interpolated only — render positions animate smoothly between buffered server snapshots.
+- Render clock advances each frame, capped at latest server time to handle tab resume without entity freeze.
+- Lives, score, elimination, damage flash, and match finish always use latestSnapshot for instant authority changes.
+- No client-side prediction; new entities fall back to latestSnapshot position to avoid origin flashes.
+- Firebase, leaderboard, and persistence do not exist yet.
 - Match state is currently stored inside internal lobby state and may later be separated from public lobby payloads.
 
 ## Current Next Step
 
-Implement interpolation for smoother movement between server snapshots.
+Implement Firebase persistence for match results and leaderboard scores.
 
 ## Current Risk
 
-The full local multiplayer MVP loop is stable, but snapshot interpolation is not implemented yet.
-Movement smoothness under latency and jitter is still pending.
+The full multiplayer MVP loop with smooth client-side interpolation is stable and verified.
 Firebase persistence, leaderboard, and production deployment are still pending.
 
 ---

@@ -4,7 +4,7 @@
 
 Pixi Arena is currently a Vite, TypeScript, and PixiJS browser game with a local Socket.IO server for multiplayer lobby and authoritative movement development. The current implementation includes Home, Playing, Game Over, Multiplayer Menu, Lobby, and Multiplayer Playing scenes; player movement; mobile joystick input; lives; survival scoring; difficulty scaling; world bounds; obstacles; and basic feedback.
 
-The multiplayer foundation is implemented through the lobby flow and server-authoritative match simulation. Shared constants, shared simulation functions, and shared state types live under `src/shared/`. `Player` and `Enemy` are Pixi view wrappers over shared state. `SocketClient` exists as a thin Socket.IO transport wrapper. The local multiplayer MVP loop now runs from MultiplayerMenu to Lobby to MultiplayerPlaying to MatchResults. Firebase, leaderboard, interpolation, and persistence are not implemented yet.
+The multiplayer foundation is implemented through the lobby flow and server-authoritative match simulation. Shared constants, shared simulation functions, and shared state types live under `src/shared/`. `Player` and `Enemy` are Pixi view wrappers over shared state. `SocketClient` exists as a thin Socket.IO transport wrapper. The local multiplayer MVP loop now runs from MultiplayerMenu to Lobby to MultiplayerPlaying to MatchResults. Firebase, leaderboard, and persistence are not implemented yet.
 
 The current frontend separates engine setup, gameplay data, gameplay logic, scene orchestration, API access, and UI. Each layer should have one clear reason to change.
 
@@ -76,7 +76,7 @@ Clients render server snapshots and may interpolate between snapshots for smooth
 
 Damage is not emitted as a separate event. Clients derive damage feedback from snapshot state changes, such as lives decreasing.
 
-Interpolation will operate on client-side snapshot history by buffering recent snapshots and interpolating render positions between them. No client-side prediction is planned for v1, and server authority remains unchanged.
+Interpolation operates on client-side snapshot history by buffering recent snapshots and interpolating render positions between them. The render clock is capped at the latest server time to handle tab resume correctly. Lives, score, elimination, damage feedback, and match finish events always use the latest authoritative snapshot (no client-side prediction). Server authority remains unchanged.
 
 ## Realtime and Persistence Boundaries
 
@@ -104,14 +104,13 @@ Frontend and backend environments should both be treated as explicit deployment 
 
 The frontend game loop keeps update and render responsibilities separate. Update work advances state using elapsed time. Render work reflects the latest state through Pixi display objects.
 
-In multiplayer, the frontend update loop should also process server snapshots and interpolation while avoiding ownership of authoritative gameplay outcomes.
+In multiplayer, the frontend update loop processes server snapshots, maintains interpolation buffers, advances the render clock, and interpolates render positions while avoiding ownership of authoritative gameplay outcomes.
 
 ## Current Next Step
 
-Implement interpolation for smoother movement between server snapshots.
+Implement Firebase persistence for match results and leaderboard scores.
 
 ## Current Risk
 
-The full local multiplayer MVP loop is stable, but snapshot interpolation is not implemented yet.
-Movement smoothness under latency and jitter is still pending.
+The full multiplayer MVP loop with smooth client-side interpolation is stable and verified.
 Firebase persistence, leaderboard, and production deployment are still pending.
