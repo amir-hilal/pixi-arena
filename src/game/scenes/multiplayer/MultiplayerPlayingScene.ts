@@ -121,7 +121,7 @@ export class MultiplayerPlayingScene implements Scene {
     });
     this.diagnosticsText = createSceneText({
       align: 'right',
-      anchor: 1,
+      anchor: { x: 1, y: 0 },
       fill: MUTED_TEXT_COLOR,
       fontSize: DIAGNOSTICS_TEXT_SIZE,
       text: '',

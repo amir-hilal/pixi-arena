@@ -3,7 +3,7 @@ import type { Renderer } from '../../core/Renderer';
 
 interface SceneTextOptions {
   align?: 'left' | 'center' | 'right';
-  anchor?: number;
+  anchor?: number | { x: number; y: number };
   fill?: number;
   fontSize: number;
   text: string;
