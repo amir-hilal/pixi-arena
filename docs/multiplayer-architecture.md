@@ -35,6 +35,10 @@ The server owns:
 
 Clients render snapshots from the server and may interpolate between snapshots for smooth motion.
 
+`match:snapshot` is a full authoritative snapshot, not a delta. Each snapshot contains the complete current player and enemy state. Clients render from the latest snapshot for consistency and simplicity over bandwidth efficiency.
+
+Damage is not emitted as a separate event. Clients derive damage feedback from snapshot state changes, such as lives decreasing.
+
 ## Responsibilities
 
 | Area | Client | Server |
@@ -58,6 +62,14 @@ Lobby states:
 - `playing`: authoritative simulation is running.
 - `finished`: winner and match results are final.
 
+Player readiness uses server-side location state:
+
+- `lobby`
+- `playing`
+- `results`
+
+`lobby:startMatch` requires host authority, `waiting` status, minimum connected players, and all connected players in `location === 'lobby'`.
+
 ## Realtime Event Plan
 
 Client to server:
@@ -65,6 +77,7 @@ Client to server:
 - `lobby:create`
 - `lobby:join`
 - `lobby:leave`
+- `lobby:return`
 - `player:input`
 
 Server to client:
@@ -73,7 +86,6 @@ Server to client:
 - `match:countdown`
 - `match:started`
 - `match:snapshot`
-- `player:damaged`
 - `player:eliminated`
 - `match:finished`
 
@@ -82,6 +94,20 @@ Server to client:
 - Server tick rate: start at 20-30 ticks per second.
 - Client render rate: target 60 FPS.
 - Client rendering should interpolate between server snapshots to reduce jitter.
+
+Interpolation direction:
+
+- Client keeps a short history buffer of recent snapshots.
+- Client interpolates render positions between buffered snapshots.
+- No client-side prediction in v1.
+- Server authority is unchanged.
+
+Input model:
+
+- Clients continuously emit current input intent `{ dx, dy }`.
+- Server stores latest input per player.
+- Server applies latest input each simulation tick.
+- Inputs are intent, not final positions.
 
 ## Anti-Cheat Baseline
 

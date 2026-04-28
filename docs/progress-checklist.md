@@ -58,7 +58,8 @@
 - [x] Phase I.3 — Add server-owned damage/collisions and eliminations
 - [x] Phase I.4 — Add winner/game over logic, `match:finished`, survival scoring, deterministic result ranking, and post-match location state transitions (`playing` → `results`)
 - [x] Phase H — Add MatchResultsScene/results UI with server-confirmed `lobby:return` flow back to LobbyScene
-- [x] Phase G — Expand client gameplay rendering from authoritative server snapshots
+
+- [x] Phase G — Expand client gameplay rendering from authoritative server snapshots, including world rendering parity and resolution fairness fixes.
 	- Resolved resolution-dependent spawn fairness by removing viewport-based logic
 - [x] Fix lobby readiness and post-match player state handling
 	- Server tracks player location (`lobby` | `playing` | `results`)

@@ -46,6 +46,8 @@ Phases A through I.4, plus Phase G and Phase H, are complete:
 - Server owns match state, movement, enemies, damage, eliminations, winner detection, survival scoring, and `match:finished`.
 - Server tracks per-player location state (`lobby` | `playing` | `results`) for readiness and participation.
 - `lobby:startMatch` requires host + waiting + minimum players + all connected players in `lobby`.
+- `match:snapshot` is a full authoritative snapshot (not a delta), and clients render from the latest snapshot for consistency.
+- Damage is not emitted as a separate event; client feedback derives from snapshot state changes (for example, lives decreasing).
 - Server simulation is resolution-agnostic and does not use viewport/camera dimensions.
 - Enemy spawning uses world-space ring distribution around players, with retries and gate fallback.
 - Client camera is presentation-only and does not influence gameplay outcomes.
@@ -515,6 +517,13 @@ finished
 | `lobby:startMatch` | *(none)* | Server validates host + lobby readiness before countdown |
 | `player:input` | `{ dx: number; dy: number }` | Normalized direction; sent every frame during match |
 
+Input model notes:
+
+- Clients continuously emit current input intent `{ dx, dy }`.
+- Server stores the latest input per player.
+- Server applies the latest stored input each simulation tick.
+- Inputs are intent, not final positions.
+
 ### 4.2 Server → Client
 
 | Event | Payload | Notes |
@@ -523,9 +532,21 @@ finished
 | `lobby:error` | `{ message: string }` | e.g. "Lobby not found" / "Lobby full" / "Match in progress" |
 | `match:countdown` | `{ secondsRemaining: number }` | 3, 2, 1 before match:started |
 | `match:started` | `{ matchId: string; initialState: MatchSnapshot }` | Triggers scene transition |
-| `match:snapshot` | `MatchSnapshot` | 20–30× per second during playing phase |
+| `match:snapshot` | `MatchSnapshot` | Full authoritative snapshot, 20–30× per second during playing phase |
 | `player:eliminated` | `{ playerId: string; rank: number }` | Show elimination overlay |
 | `match:finished` | `{ result: MatchResult }` | Triggers results scene transition |
+
+Snapshot model notes:
+
+- `match:snapshot` is a full state payload, not a delta patch.
+- Each snapshot contains complete current `players` and `enemies` state.
+- Clients replace/render from the latest snapshot.
+- This favors consistency and implementation simplicity over bandwidth efficiency.
+
+Damage feedback note:
+
+- No `player:damaged` event exists.
+- Clients infer damage feedback from snapshot state changes (for example, life drops).
 
 ---
 
@@ -697,7 +718,7 @@ Mitigation: run `tsc --noEmit` on `src/shared/` in isolation as part of CI. Or e
 Starting entity view wrapper refactor before simulation functions are extracted risks breaking single-player during an incomplete migration. Never begin Phase C until Phase B has zero errors and single-player has been verified.
 
 **Input latency in v1**
-No client-side prediction means the local player's rendered position lags by one server round-trip (~33ms at 30 ticks). This is intentional for v1 simplicity. Interpolation is a Phase G+ improvement.
+No client-side prediction means the local player's rendered position lags by one server round-trip (~33ms at 30 ticks). This is intentional for v1 simplicity. Interpolation is the next step and will operate on client-side snapshot history while server authority remains unchanged.
 
 **Snapshot bandwidth**
 4 players + 20 enemies × ~3 numeric fields ≈ 1–2 KB JSON per tick. At 30 ticks/sec = ~60 KB/sec per client. Acceptable for v1 without binary encoding.

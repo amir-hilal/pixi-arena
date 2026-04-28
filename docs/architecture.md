@@ -58,6 +58,8 @@ Enemy spawning fairness is enforced in shared/server world-space logic and does 
 
 In multiplayer, clients send input state, not final positions.
 
+Clients continuously emit input intent `{ dx, dy }`. The server stores each player's latest input and applies that input every simulation tick.
+
 The server owns:
 
 - player positions
@@ -69,6 +71,12 @@ The server owns:
 - winner selection
 
 Clients render server snapshots and may interpolate between snapshots for smooth motion.
+
+`match:snapshot` is a full authoritative snapshot, not a delta. Clients render from the latest snapshot state. This favors consistency and simplicity over bandwidth efficiency.
+
+Damage is not emitted as a separate event. Clients derive damage feedback from snapshot state changes, such as lives decreasing.
+
+Interpolation will operate on client-side snapshot history by buffering recent snapshots and interpolating render positions between them. No client-side prediction is planned for v1, and server authority remains unchanged.
 
 ## Realtime and Persistence Boundaries
 
