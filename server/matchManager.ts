@@ -14,10 +14,12 @@ import {
   WORLD_HEIGHT,
   WORLD_WIDTH,
 } from '../src/shared/constants/world.js';
+import { WORLD_OBSTACLE_RECTS } from '../src/shared/constants/obstacles.js';
 import {
   applyPlayerInput,
   clampPlayerToBounds,
 } from '../src/shared/simulation/movement.js';
+import { circleRectPushback } from '../src/shared/simulation/collision.js';
 import {
   getEnemyCullMargin,
   getEnemySpawnIntervalSeconds,
@@ -56,7 +58,7 @@ const worldState: WorldState = {
   width: WORLD_WIDTH,
   height: WORLD_HEIGHT,
   boundaryThickness: BOUNDARY_WALL_THICKNESS,
-  obstacles: [],
+  obstacles: WORLD_OBSTACLE_RECTS.map((rect) => ({ rect })),
   gates: WORLD_GATES,
 };
 
@@ -201,6 +203,8 @@ function stepMatch(lobby: LobbyState): MatchTickResult | null {
 
     applyPlayerInput(player, input, TICK_DELTA_SECONDS, PLAYER_SPEED);
     clampPlayerToBounds(player, worldState, PLAYER_RADIUS);
+    resolvePlayerObstacleCollisions(player);
+    clampPlayerToBounds(player, worldState, PLAYER_RADIUS);
     player.survivalTimeSeconds += TICK_DELTA_SECONDS;
     player.score += POINTS_PER_SECOND * TICK_DELTA_SECONDS;
   }
@@ -309,6 +313,23 @@ function resolveEnemyCollisions(
   }
 
   return createEliminationPayloads(match.players, newlyEliminatedIds);
+}
+
+function resolvePlayerObstacleCollisions(player: PlayerState): void {
+  for (const obstacle of worldState.obstacles) {
+    const pushback = circleRectPushback(
+      player.position,
+      PLAYER_RADIUS,
+      obstacle.rect,
+    );
+
+    if (pushback === null) {
+      continue;
+    }
+
+    player.position.x += pushback.x;
+    player.position.y += pushback.y;
+  }
 }
 
 function resolveMatchFinished(
