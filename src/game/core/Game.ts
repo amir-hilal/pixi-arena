@@ -1,5 +1,6 @@
 import { SocketClient } from '../../api/SocketClient';
 import { HomeScene } from '../scenes/HomeScene';
+import { LeaderboardScene } from '../scenes/LeaderboardScene';
 import { SceneManager } from '../scenes/common/SceneManager';
 import { MultiplayerLobbyScene } from '../scenes/multiplayer/MultiplayerLobbyScene';
 import { MultiplayerMatchResultsScene } from '../scenes/multiplayer/MultiplayerMatchResultsScene';
@@ -78,6 +79,7 @@ export class Game {
         this.audioManager,
         this.startPlayingScene,
         this.showMultiplayerMenuScene,
+        this.showLeaderboardScene,
       ),
     );
     this.isInitialized = true;
@@ -108,7 +110,14 @@ export class Game {
         this.audioManager,
         this.startPlayingScene,
         this.showMultiplayerMenuScene,
+        this.showLeaderboardScene,
       ),
+    );
+  };
+
+  private readonly showLeaderboardScene = (): void => {
+    this.sceneManager?.setScene(
+      new LeaderboardScene(this.renderer, this.showHomeScene),
     );
   };
 

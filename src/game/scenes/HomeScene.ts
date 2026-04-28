@@ -6,23 +6,27 @@ import type { Scene } from './common/Scene';
 const TITLE_TEXT = 'Pixi Arena';
 const SINGLE_PLAYER_TEXT = 'Single Player';
 const MULTIPLAYER_TEXT = 'Multiplayer';
+const LEADERBOARD_TEXT = 'Leaderboard';
 const TITLE_TEXT_SIZE = 42;
 const MENU_TEXT_SIZE = 20;
 const TITLE_TEXT_Y_RATIO = 0.4;
 const SINGLE_PLAYER_TEXT_Y_OFFSET = 56;
 const MULTIPLAYER_TEXT_Y_OFFSET = 92;
+const LEADERBOARD_TEXT_Y_OFFSET = 128;
 const TEXT_COLOR = 0xffffff;
 
 export class HomeScene implements Scene {
   private titleText: Text | null = null;
   private singlePlayerText: Text | null = null;
   private multiplayerText: Text | null = null;
+  private leaderboardText: Text | null = null;
 
   public constructor(
     private readonly renderer: Renderer,
     private readonly audioManager: AudioManager,
     private readonly onSinglePlayer: () => void,
     private readonly onMultiplayer: () => void,
+    private readonly onLeaderboard: () => void,
   ) {}
 
   public initialize(): void {
@@ -37,10 +41,16 @@ export class HomeScene implements Scene {
       MULTIPLAYER_TEXT_Y_OFFSET,
     );
     this.multiplayerText.on('pointertap', this.handleMultiplayer);
+    this.leaderboardText = this.createMenuText(
+      LEADERBOARD_TEXT,
+      LEADERBOARD_TEXT_Y_OFFSET,
+    );
+    this.leaderboardText.on('pointertap', this.handleLeaderboard);
 
     this.renderer.addToStage(this.titleText);
     this.renderer.addToStage(this.singlePlayerText);
     this.renderer.addToStage(this.multiplayerText);
+    this.renderer.addToStage(this.leaderboardText);
   }
 
   public update(_deltaSeconds: number): void {}
@@ -57,6 +67,10 @@ export class HomeScene implements Scene {
       width / 2,
       centerY + MULTIPLAYER_TEXT_Y_OFFSET,
     );
+    this.leaderboardText?.position.set(
+      width / 2,
+      centerY + LEADERBOARD_TEXT_Y_OFFSET,
+    );
   }
 
   public destroy(): void {
@@ -70,6 +84,12 @@ export class HomeScene implements Scene {
       this.multiplayerText.off('pointertap', this.handleMultiplayer);
       this.destroyText(this.multiplayerText);
       this.multiplayerText = null;
+    }
+
+    if (this.leaderboardText !== null) {
+      this.leaderboardText.off('pointertap', this.handleLeaderboard);
+      this.destroyText(this.leaderboardText);
+      this.leaderboardText = null;
     }
 
     this.destroyText(this.titleText);
@@ -126,5 +146,9 @@ export class HomeScene implements Scene {
   private readonly handleMultiplayer = (): void => {
     this.audioManager.unlock();
     this.onMultiplayer();
+  };
+
+  private readonly handleLeaderboard = (): void => {
+    this.onLeaderboard();
   };
 }
